@@ -1,0 +1,14 @@
+[package]
+name = "smart_servo_wasm"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen.workspace = true
+smart_servo_core = { path = "../smart_servo_core" }
+

@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "build_backend"
+backend-path = ["."]
+
+[project]
+name = "motorbridge-smart-servo"
+version = "0.0.1"
+description = "Python bindings for MotorBridge Smart Servo ABI"
+requires-python = ">=3.9"
+readme = "README.md"
+authors = [{ name = "tianrking" }]
+license = "MIT"
+keywords = ["motor", "servo", "fashionstar", "uart", "robotics"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Rust",
+  "Topic :: Scientific/Engineering",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+motorbridge_smart_servo = [
+  "py.typed",
+  "native/*.dll",
+  "native/*.so",
+  "native/*.dylib",
+]
+
+[project.scripts]
+motorbridge-smart-servo = "motorbridge_smart_servo.cli:main"

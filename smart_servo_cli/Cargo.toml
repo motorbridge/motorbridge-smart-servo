@@ -1,0 +1,16 @@
+[package]
+name = "smart_servo_cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "smart-servo"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+ctrlc = "3"
+smart_servo_core = { path = "../smart_servo_core" }
+smart_servo_vendor_fashionstar = { path = "../smart_servo_vendors/fashionstar" }

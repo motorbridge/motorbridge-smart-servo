@@ -1,0 +1,64 @@
+name: Build Python Wheels
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  wheel:
+    name: Wheel ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x86_64
+            os: windows-latest
+          - name: linux-x86_64
+            os: ubuntu-latest
+          - name: macos-x86_64
+            os: macos-13
+          - name: macos-aarch64
+            os: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Linux native deps
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libudev-dev
+      - name: Install build tools
+        run: python -m pip install --upgrade pip build twine
+      - name: Build wheel
+        run: python -m build --wheel bindings/python
+      - name: Check wheel metadata
+        run: python -m twine check bindings/python/dist/*
+      - name: Generate wheel checksums
+        shell: bash
+        run: |
+          cd bindings/python/dist
+          sha256sum *.whl > SHA256SUMS-${{ matrix.name }}.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: motorbridge-smart-servo-wheel-${{ matrix.name }}
+          path: |
+            bindings/python/dist/*.whl
+            bindings/python/dist/SHA256SUMS-${{ matrix.name }}.txt
+      - name: Upload wheel to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            bindings/python/dist/*.whl
+            bindings/python/dist/SHA256SUMS-${{ matrix.name }}.txt
+          fail_on_unmatched_files: true
+          generate_release_notes: true

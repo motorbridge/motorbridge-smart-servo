@@ -1,0 +1,125 @@
+name: Build Native Artifacts
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  native:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x86_64-msvc
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            cli: smart-servo.exe
+            abi: smart_servo_abi.dll
+          - name: linux-x86_64-gnu
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            cli: smart-servo
+            abi: libsmart_servo_abi.so
+          - name: linux-aarch64-gnu
+            os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            cli: smart-servo
+            abi: libsmart_servo_abi.so
+            use_cross: true
+          - name: macos-x86_64
+            os: macos-13
+            target: x86_64-apple-darwin
+            cli: smart-servo
+            abi: libsmart_servo_abi.dylib
+          - name: macos-aarch64
+            os: macos-14
+            target: aarch64-apple-darwin
+            cli: smart-servo
+            abi: libsmart_servo_abi.dylib
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Linux native deps
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libudev-dev
+      - name: Install cross
+        if: matrix.use_cross == true
+        run: cargo install cross --git https://github.com/cross-rs/cross
+      - name: Build
+        shell: bash
+        run: |
+          if [ "${{ matrix.use_cross }}" = "true" ]; then
+            cross build --release --target ${{ matrix.target }} -p smart_servo_cli -p smart_servo_abi
+          else
+            cargo build --release --target ${{ matrix.target }} -p smart_servo_cli -p smart_servo_abi
+          fi
+      - name: Stage artifacts
+        shell: bash
+        run: |
+          mkdir -p dist/${{ matrix.name }}
+          cp target/${{ matrix.target }}/release/${{ matrix.cli }} dist/${{ matrix.name }}/
+          cp target/${{ matrix.target }}/release/${{ matrix.abi }} dist/${{ matrix.name }}/
+          cp README.md ARCHITECTURE.md dist/${{ matrix.name }}/
+          tar -czf dist/motorbridge-smart-servo-${{ matrix.name }}.tar.gz -C dist/${{ matrix.name }} .
+          sha256sum dist/motorbridge-smart-servo-${{ matrix.name }}.tar.gz > dist/motorbridge-smart-servo-${{ matrix.name }}.tar.gz.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: motorbridge-smart-servo-${{ matrix.name }}
+          path: |
+            dist/motorbridge-smart-servo-${{ matrix.name }}.tar.gz
+            dist/motorbridge-smart-servo-${{ matrix.name }}.tar.gz.sha256
+      - name: Upload to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/motorbridge-smart-servo-${{ matrix.name }}.tar.gz
+            dist/motorbridge-smart-servo-${{ matrix.name }}.tar.gz.sha256
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+
+  wasm:
+    name: wasm32-unknown-unknown
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Install wasm-bindgen-cli
+        run: cargo install wasm-bindgen-cli
+      - name: Build WASM
+        run: cargo build --release -p smart_servo_wasm --target wasm32-unknown-unknown
+      - name: Generate JS bindings
+        run: |
+          mkdir -p dist/wasm
+          wasm-bindgen target/wasm32-unknown-unknown/release/smart_servo_wasm.wasm --out-dir dist/wasm --target web
+          tar -czf dist/motorbridge-smart-servo-wasm.tar.gz -C dist/wasm .
+          sha256sum dist/motorbridge-smart-servo-wasm.tar.gz > dist/motorbridge-smart-servo-wasm.tar.gz.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: motorbridge-smart-servo-wasm
+          path: |
+            dist/motorbridge-smart-servo-wasm.tar.gz
+            dist/motorbridge-smart-servo-wasm.tar.gz.sha256
+      - name: Upload WASM to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/motorbridge-smart-servo-wasm.tar.gz
+            dist/motorbridge-smart-servo-wasm.tar.gz.sha256
+          fail_on_unmatched_files: true
+          generate_release_notes: true
