@@ -1,4 +1,4 @@
-import init, {
+﻿import init, {
   WasmAngleReliability,
   fashionstar_decode_angle,
   fashionstar_query_angle_packet,
@@ -10,6 +10,9 @@ const rawEl = document.querySelector("#raw");
 const filteredEl = document.querySelector("#filtered");
 const reliableEl = document.querySelector("#reliable");
 const statusEl = document.querySelector("#status");
+const txCountEl = document.querySelector("#tx-count");
+const rxCountEl = document.querySelector("#rx-count");
+const debugLogEl = document.querySelector("#debug-log");
 const connectBtn = document.querySelector("#connect");
 const disconnectBtn = document.querySelector("#disconnect");
 const servoIdEl = document.querySelector("#servo-id");
@@ -19,6 +22,8 @@ const multiTurnEl = document.querySelector("#multi-turn");
 const yMin = -180;
 const yMax = 180;
 const maxPoints = 180;
+const pollIntervalMs = 20;
+const responseTimeoutMs = 120;
 let filter;
 let points = [];
 let port;
@@ -26,9 +31,31 @@ let reader;
 let writer;
 let live = false;
 let rxBuffer = new Uint8Array(0);
+let txCount = 0;
+let rxCount = 0;
+let lastRxAt = 0;
+let debugLines = [];
 
 function setStatus(text) {
   statusEl.textContent = text;
+}
+
+function logDebug(line) {
+  const stamp = new Date().toLocaleTimeString();
+  debugLines.push(`[${stamp}] ${line}`);
+  debugLines = debugLines.slice(-12);
+  debugLogEl.textContent = debugLines.join("\n");
+}
+
+function bytesToHex(bytes, max = 48) {
+  const view = Array.from(bytes.slice(0, max));
+  const suffix = bytes.length > max ? ` ... +${bytes.length - max}` : "";
+  return view.map((byte) => byte.toString(16).padStart(2, "0")).join(" ") + suffix;
+}
+
+function setCounters() {
+  txCountEl.textContent = String(txCount);
+  rxCountEl.textContent = String(rxCount);
 }
 
 function yFor(value) {
@@ -102,6 +129,16 @@ async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function waitForResponse(servoId, multiTurn, startedAt) {
+  while (performance.now() - startedAt < responseTimeoutMs) {
+    const decoded = fashionstar_decode_angle(rxBuffer, servoId, multiTurn);
+    if (decoded.found) return decoded;
+    if (decoded.error) return decoded;
+    await sleep(4);
+  }
+  return null;
+}
+
 async function serialReadLoop() {
   while (live && port?.readable) {
     reader = port.readable.getReader();
@@ -109,9 +146,13 @@ async function serialReadLoop() {
       while (live) {
         const { value, done } = await reader.read();
         if (done) break;
-        if (value) {
+        if (value?.length) {
+          rxCount += value.length;
+          lastRxAt = performance.now();
           rxBuffer = appendBytes(rxBuffer, value);
           if (rxBuffer.length > 512) rxBuffer = rxBuffer.slice(-512);
+          setCounters();
+          logDebug(`RX ${value.length} bytes: ${bytesToHex(value)}`);
         }
       }
     } catch (error) {
@@ -128,18 +169,26 @@ async function serialPollLoop() {
     const servoId = Number(servoIdEl.value);
     const multiTurn = multiTurnEl.checked;
     const packet = fashionstar_query_angle_packet(servoId, multiTurn);
+    rxBuffer = new Uint8Array(0);
     await writer.write(packet);
-    await sleep(20);
+    txCount += packet.length;
+    setCounters();
+    logDebug(`TX query id=${servoId} multi=${multiTurn}: ${bytesToHex(packet)}`);
 
-    const decoded = fashionstar_decode_angle(rxBuffer, servoId, multiTurn);
-    if (decoded.found) {
+    const decoded = await waitForResponse(servoId, multiTurn, performance.now());
+    if (decoded?.found) {
       pushRaw(decoded.raw_deg);
-      rxBuffer = new Uint8Array(0);
-      setStatus("live WebSerial");
-    } else if (decoded.error) {
+      setStatus(`live WebSerial, last RX ${Math.round(performance.now() - lastRxAt)}ms ago`);
+      logDebug(`DECODE raw=${decoded.raw_deg.toFixed(3)} deg`);
+    } else if (decoded?.error) {
       setStatus(decoded.error);
-      rxBuffer = new Uint8Array(0);
+      logDebug(`DECODE error: ${decoded.error}`);
+    } else {
+      setStatus(`timeout waiting for id=${servoId}; check id, baudrate, power, TX/RX wiring`);
+      logDebug("TIMEOUT no valid FashionStar angle response");
     }
+
+    await sleep(pollIntervalMs);
   }
 }
 
@@ -150,6 +199,10 @@ async function connectSerial() {
   }
 
   reset();
+  txCount = 0;
+  rxCount = 0;
+  debugLines = [];
+  setCounters();
   const baudRate = Number(baudrateEl.value);
   port = await navigator.serial.requestPort();
   await port.open({ baudRate, dataBits: 8, stopBits: 1, parity: "none", flowControl: "none" });
@@ -159,6 +212,7 @@ async function connectSerial() {
   connectBtn.disabled = true;
   disconnectBtn.disabled = false;
   setStatus(`connected @ ${baudRate}`);
+  logDebug(`OPEN baud=${baudRate}`);
   void serialReadLoop();
   void serialPollLoop();
 }
@@ -181,6 +235,7 @@ async function disconnectSerial() {
   connectBtn.disabled = false;
   disconnectBtn.disabled = true;
   setStatus("disconnected");
+  logDebug("CLOSE");
 }
 
 async function play(values, delayMs = 50) {
@@ -213,6 +268,7 @@ function realZeroSequence() {
 
 await init();
 reset();
+setCounters();
 
 connectBtn.addEventListener("click", () => connectSerial().catch((error) => setStatus(error.message)));
 disconnectBtn.addEventListener("click", () => disconnectSerial().catch((error) => setStatus(error.message)));
