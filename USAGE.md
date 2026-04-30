@@ -126,6 +126,12 @@ a power-cycle bridge (`A -> 0 -> B`).
 If the servo is intentionally held at real zero, the filter confirms repeated
 zero samples and eventually releases `filtered=0 reliable=true`.
 
+The core default confirmation window is `30` consecutive zero samples. At the
+common `20 ms` monitor interval this is about `0.6 s`. The WASM WebSerial demo
+uses a longer `3.0 s` default because real power-cycle testing showed a longer
+startup zero glitch. See [ARCHITECTURE.md](ARCHITECTURE.md) for the design note
+about making this timing consistent across CLI, Python, C ABI, and WASM.
+
 If the bus times out during monitoring after at least one valid sample, the CLI
 continues and prints `reliable=false` with the last filtered angle.
 
@@ -271,6 +277,8 @@ python -m http.server 8080
 Open `http://localhost:8080` in Chrome or Edge, then click `Connect WebSerial`.
 
 JavaScript owns WebSerial I/O; WASM owns packet encode/decode and filtering.
+The demo defaults `Zero hold seconds` to `3.0`, which is about `150` samples at
+the current `20 ms` polling interval.
 
 ## Platform Support
 

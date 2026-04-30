@@ -68,3 +68,27 @@ filtered: -70 -> -55 -> -20
 
 Repeated zero samples are treated as an intentional real zero after confirmation,
 so a servo commanded to zero is not held forever at the previous non-zero angle.
+
+### Zero Confirmation Timing
+
+The reliability core currently expresses zero confirmation as a sample count,
+not as wall-clock time:
+
+```text
+confirmation_time = zero_confirm_samples * polling_interval
+```
+
+Current defaults:
+
+- Core default: `zero_confirm_samples = 30`
+- At `20 ms` polling: about `0.6 s`
+- WASM WebSerial demo default: `3.0 s`, implemented as about `150` samples at `20 ms`
+
+The longer WASM demo default was chosen after real power-cycle testing showed
+that FashionStar startup can report unreliable zero values for longer than the
+core default window.
+
+Design note for the next iteration: move this behavior toward a time-based
+configuration, or raise the shared core default, so Rust CLI, Python, C ABI, and
+WASM all apply the same reliability policy unless a caller explicitly overrides
+it.
