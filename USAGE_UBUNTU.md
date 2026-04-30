@@ -354,91 +354,44 @@ with FashionStarServo("/dev/ttyUSB0", 1_000_000) as bus:
 
 ## 7. Python 示例脚本
 
-### 扫描总线
+所有示例位于 `examples/` 目录，统一使用 `/dev/ttyUSB0` 端口。按需修改。
 
-```python
-# scan_demo.py
-from motorbridge_smart_servo import SmartServoBus
-
-with SmartServoBus.open(vendor="fashionstar", port="/dev/ttyUSB0", baudrate=1_000_000) as bus:
-    ids = bus.scan(max_id=20)
-    if ids:
-        print(f"发现 {len(ids)} 个舵机: {ids}")
-    else:
-        print("未发现舵机，请检查接线和供电")
-```
-
-运行：
+### 7.1 扫描总线（`python_scan.py`）
 
 ```bash
-python scan_demo.py
+python examples/python_scan.py
 ```
 
-### 读取角度
+### 7.2 Ping 单个舵机（`python_ping.py`）
 
-```python
-# read_demo.py
-from motorbridge_smart_servo import SmartServoBus
-
-with SmartServoBus.open(vendor="fashionstar", port="/dev/ttyUSB0") as bus:
-    sample = bus.read_angle(0, multi_turn=True)
-    print(f"原始角度:   {sample.raw_deg:.3f}°")
-    print(f"滤波角度:   {sample.filtered_deg:.3f}°")
-    print(f"数据可信:   {sample.reliable}")
-```
-
-运行：
+逐个 ping ID 0-9，显示在线状态：
 
 ```bash
-python read_demo.py
+python examples/python_ping.py
 ```
 
-### 持续监控
+### 7.3 读取角度（`python_read_angle.py`）
 
-```python
-# monitor_demo.py
-from motorbridge_smart_servo import SmartServoBus
-
-with SmartServoBus.open(vendor="fashionstar", port="/dev/ttyUSB0") as bus:
-    for sample in bus.monitor(0, multi_turn=True, interval_s=0.02):
-        print(
-            f"raw={sample.raw_deg:9.3f} "
-            f"filtered={sample.filtered_deg:9.3f} "
-            f"reliable={sample.reliable}"
-        )
-```
-
-运行：
+读取单次角度，展示 `raw_deg` / `filtered_deg` / `reliable` 及便捷方法：
 
 ```bash
-python monitor_demo.py
+python examples/python_read_angle.py
 ```
 
-`Ctrl+C` 停止。
+### 7.4 持续监控（`python_monitor.py`）
 
-### 控制转动
+以 50Hz 持续采样，`Ctrl+C` 停止：
+
+```bash
+python examples/python_monitor.py
+```
+
+### 7.5 控制转动（`python_set_angle.py`）
 
 > **[未测试] 此脚本会驱动舵机物理运动，操作不当可能导致机械损坏。请确认舵机安装安全、运动范围无遮挡后再使用。**
 
-```python
-# move_demo.py
-from motorbridge_smart_servo import SmartServoBus
-
-with SmartServoBus.open(vendor="fashionstar", port="/dev/ttyUSB0") as bus:
-    print("转动到 -45° ...")
-    bus.set_angle(0, -45.0, multi_turn=False, interval_ms=500)
-
-    import time
-    time.sleep(1)
-
-    sample = bus.read_angle(0, multi_turn=False)
-    print(f"当前角度: {sample.filtered_deg:.3f}°")
-```
-
-运行：
-
 ```bash
-python move_demo.py
+python examples/python_set_angle.py
 ```
 
 ## 8. 输出含义说明
@@ -597,9 +550,11 @@ motorbridge-smart-servo/
 │           ├── py.typed        # PEP 561 类型标记
 │           └── native/.gitkeep # 不再存放 .so，仅保留目录
 └── examples/
-    ├── python_scan.py
-    ├── python_read_angle.py
-    └── python_monitor.py
+    ├── python_scan.py          # 扫描总线上的在线舵机
+    ├── python_ping.py          # Ping 单个舵机检查在线状态
+    ├── python_read_angle.py    # 读取单次角度（含便捷方法）
+    ├── python_monitor.py       # 持续监控（50Hz）
+    └── python_set_angle.py     # 控制舵机转动（注意安全警告）
 ```
 
 关键变化（v0.0.1 → v0.0.2）：
