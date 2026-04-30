@@ -1,4 +1,4 @@
-﻿import init, {
+import init, {
   WasmAngleReliability,
   fashionstar_decode_angle,
   fashionstar_query_angle_packet,
@@ -18,6 +18,7 @@ const disconnectBtn = document.querySelector("#disconnect");
 const servoIdEl = document.querySelector("#servo-id");
 const baudrateEl = document.querySelector("#baudrate");
 const multiTurnEl = document.querySelector("#multi-turn");
+const zeroHoldEl = document.querySelector("#zero-hold-s");
 
 const yMin = -180;
 const yMax = 180;
@@ -56,6 +57,11 @@ function bytesToHex(bytes, max = 48) {
 function setCounters() {
   txCountEl.textContent = String(txCount);
   rxCountEl.textContent = String(rxCount);
+}
+
+function zeroConfirmSamples() {
+  const seconds = Number(zeroHoldEl.value);
+  return Math.max(1, Math.round((seconds * 1000) / pollIntervalMs));
 }
 
 function yFor(value) {
@@ -248,7 +254,7 @@ async function play(values, delayMs = 50) {
 }
 
 function reset() {
-  filter = new WasmAngleReliability();
+  filter = WasmAngleReliability.with_config(1.0, 20.0, zeroConfirmSamples());
   points = [];
   render();
 }
@@ -275,3 +281,7 @@ disconnectBtn.addEventListener("click", () => disconnectSerial().catch((error) =
 document.querySelector("#play-glitch").addEventListener("click", () => play(glitchSequence()));
 document.querySelector("#play-zero").addEventListener("click", () => play(realZeroSequence()));
 document.querySelector("#clear").addEventListener("click", reset);
+zeroHoldEl.addEventListener("change", () => {
+  reset();
+  setStatus(`zero hold set to ${zeroHoldEl.value}s`);
+});

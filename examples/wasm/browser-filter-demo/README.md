@@ -50,6 +50,13 @@ Click `Connect WebSerial`, choose the USB serial adapter, and keep the defaults 
 - baudrate: `1000000`
 - servo id: `0`
 - multi-turn: checked
+- zero hold seconds: `3.0`
+
+`zero hold seconds` controls how long a raw zero must remain stable before the
+filter accepts it as a real zero. At the default 20 ms polling interval, `3.0`
+seconds is about 150 samples. Increase it if power-cycle startup still leaks a
+short zero glitch; decrease it if you need intentional zero positions to be
+accepted faster.
 
 ## Simulation mode
 

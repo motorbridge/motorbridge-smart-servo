@@ -30,6 +30,10 @@
           <input id="multi-turn" type="checkbox" checked />
           multi-turn
         </label>
+        <label>
+          Zero hold seconds
+          <input id="zero-hold-s" type="number" min="0.2" max="10" step="0.1" value="3.0" />
+        </label>
         <button id="connect">Connect WebSerial</button>
         <button id="disconnect" disabled>Disconnect</button>
         <button id="play-glitch">Simulate A -> 0 -> B glitch</button>

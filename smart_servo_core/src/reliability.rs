@@ -2,7 +2,7 @@
 pub struct AngleReliabilityConfig {
     pub zero_eps_deg: f32,
     pub zero_jump_min_deg: f32,
-    pub zero_confirm_samples: u8,
+    pub zero_confirm_samples: u16,
 }
 
 impl Default for AngleReliabilityConfig {
@@ -19,7 +19,7 @@ impl Default for AngleReliabilityConfig {
 pub struct AngleReliabilityState {
     pub last_good_deg: Option<f32>,
     pub zero_bridge_active: bool,
-    pub zero_candidate_count: u8,
+    pub zero_candidate_count: u16,
 }
 
 #[derive(Debug, Clone, Default)]

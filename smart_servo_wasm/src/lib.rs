@@ -1,4 +1,4 @@
-use smart_servo_core::AngleReliability;
+use smart_servo_core::{AngleReliability, AngleReliabilityConfig};
 use smart_servo_vendor_fashionstar::protocol;
 use wasm_bindgen::prelude::*;
 
@@ -14,6 +14,27 @@ impl WasmAngleReliability {
         Self {
             inner: AngleReliability::default(),
         }
+    }
+
+    pub fn with_config(
+        zero_eps_deg: f32,
+        zero_jump_min_deg: f32,
+        zero_confirm_samples: u16,
+    ) -> Self {
+        Self {
+            inner: AngleReliability {
+                config: AngleReliabilityConfig {
+                    zero_eps_deg,
+                    zero_jump_min_deg,
+                    zero_confirm_samples: zero_confirm_samples.max(1),
+                },
+                state: Default::default(),
+            },
+        }
+    }
+
+    pub fn set_zero_confirm_samples(&mut self, samples: u16) {
+        self.inner.config.zero_confirm_samples = samples.max(1);
     }
 
     pub fn filter(&mut self, raw_deg: f32) -> WasmAngleSample {
