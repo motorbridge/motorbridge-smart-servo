@@ -226,6 +226,49 @@ with FashionStarServo("COM5") as bus:
     sample = bus.read_angle(0, multi_turn=True)
 ```
 
+## Examples
+
+Python SDK examples live in `examples/python`:
+
+```powershell
+python examples\python\scan.py
+python examples\python\read_angle.py
+python examples\python\monitor.py
+python examples\python\ping.py
+python examples\python\set_angle.py
+```
+
+WASM/browser examples live in `examples/wasm`.
+
+## WASM Browser Binding
+
+`smart_servo_wasm` is a `wasm-bindgen` binding for JavaScript and browsers. It
+currently exposes the protocol-independent angle reliability filter:
+
+```js
+const filter = new WasmAngleReliability();
+const sample = filter.filter(rawAngleDeg);
+console.log(sample.raw_deg, sample.filtered_deg, sample.reliable);
+```
+
+Build the browser package:
+
+```powershell
+examples\wasm\browser-filter-demo\build.ps1
+```
+
+Run the browser demo:
+
+```powershell
+cd examples\wasm\browser-filter-demo
+python -m http.server 8080
+```
+
+Open `http://localhost:8080`.
+
+The WASM binding does not open UART directly. Browser hardware control needs
+WebSerial or a native bridge to provide raw angle samples.
+
 ## Platform Support
 
 CI is configured to build:

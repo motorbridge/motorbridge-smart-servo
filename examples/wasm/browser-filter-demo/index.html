@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MotorBridge WASM Angle Filter Demo</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">MotorBridge Smart Servo / WASM</p>
+        <h1>Angle Reliability Filter</h1>
+        <p>
+          This browser demo runs the Rust reliability filter compiled to WASM.
+          Blue is raw protocol data; amber is the safe filtered value.
+        </p>
+      </section>
+
+      <section class="panel controls">
+        <button id="play-glitch">Simulate A -> 0 -> B glitch</button>
+        <button id="play-zero">Simulate real zero hold</button>
+        <button id="clear">Clear</button>
+      </section>
+
+      <section class="panel chart-card">
+        <canvas id="chart" width="960" height="420" aria-label="Angle chart"></canvas>
+        <div class="legend">
+          <span><i class="raw"></i>raw</span>
+          <span><i class="filtered"></i>filtered</span>
+        </div>
+      </section>
+
+      <section class="panel readout">
+        <div><strong>raw</strong><span id="raw">--</span></div>
+        <div><strong>filtered</strong><span id="filtered">--</span></div>
+        <div><strong>reliable</strong><span id="reliable">--</span></div>
+      </section>
+
+      <section class="panel notes">
+        <h2>What this proves</h2>
+        <p>
+          If the raw stream briefly reports zero during a power cycle, the Rust
+          filter holds the last safe angle and marks the sample unreliable. If
+          zero remains stable long enough, it is accepted as a real angle.
+        </p>
+      </section>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

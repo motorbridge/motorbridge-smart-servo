@@ -35,6 +35,8 @@ Current vendor target: **FashionStar UART smart servo**.
 | `smart_servo_py` | PyO3 native extension crate |
 | `bindings/python` | maturin Python package (`motorbridge-smart-servo`) |
 | `smart_servo_wasm` | WASM reliability filter core |
+| `examples/python` | Python SDK examples |
+| `examples/wasm` | Browser/JavaScript WASM examples |
 
 ## Quick Start — Rust CLI
 
@@ -97,6 +99,23 @@ motorbridge-smart-servo monitor --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --
 motorbridge-smart-servo set-angle --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --angle -45
 ```
 
+## Quick Start - WASM
+
+The WASM crate is a `wasm-bindgen` JavaScript/browser binding for the Rust angle
+reliability filter. It is directly usable from JS after generating the
+wasm-bindgen package, but it does not open UART by itself.
+
+```bash
+bash examples/wasm/browser-filter-demo/build.sh
+cd examples/wasm/browser-filter-demo
+python -m http.server 8080
+```
+
+On Windows PowerShell, run `examples\wasm\browser-filter-demo\build.ps1`
+instead of the `bash ...` command.
+
+Open `http://localhost:8080` to see raw vs filtered angle visualization.
+
 ## Platform Support
 
 | Platform | Architecture | Native CLI | C ABI | Python Wheel | WASM |
@@ -115,6 +134,8 @@ motorbridge-smart-servo set-angle --port /dev/ttyUSB0 --baudrate 1000000 --id 0 
 - [USAGE_UBUNTU.md](USAGE_UBUNTU.md) — Ubuntu full guide (install, serial setup, examples, troubleshooting)
 - [ARCHITECTURE.md](ARCHITECTURE.md) — Layer design, vendor boundary, angle reliability
 - [VENDOR_EXTENSION.md](VENDOR_EXTENSION.md) — Adding new servo brands
+- [examples/python](examples/python) — Python SDK examples
+- [examples/wasm](examples/wasm) — WASM browser examples
 
 ## License
 
