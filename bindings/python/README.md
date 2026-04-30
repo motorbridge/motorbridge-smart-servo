@@ -1,31 +1,38 @@
-# motorbridge-smart-servo Python binding
+﻿# motorbridge-smart-servo Python binding
 
-Python wrapper for the MotorBridge Smart Servo native ABI.
+PyO3 + maturin Python binding for MotorBridge Smart Servo.
 
 The binding exposes FashionStar UART smart-servo control with both protocol raw
 angle and filtered angle. The filtered value suppresses the power-cycle
 `A -> 0 -> B` glitch while allowing normal `A -> B` motion.
 
-## Build native ABI
-
-From the project root:
-
-```bash
-cargo build -p smart_servo_abi
-```
-
-The Python package automatically searches `target/debug` and `target/release`.
-You can also set an explicit path:
-
-```powershell
-$env:MOTORBRIDGE_SMART_SERVO_LIB="C:\path\to\smart_servo_abi.dll"
-```
+The Rust core is compiled directly into `motorbridge_smart_servo._native`, so
+wheels are real platform wheels such as `cp39-abi3-win_amd64.whl` or
+`cp39-abi3-manylinux2014_aarch64.whl`. There is no runtime `ctypes.CDLL(...)`
+load path and no bundled external ABI DLL for Python.
 
 ## Install for development
 
 ```bash
 cd bindings/python
+python -m pip install -U maturin
 python -m pip install -e .
+```
+
+## Build wheel
+
+```bash
+cd bindings/python
+python -m maturin build --release --out dist
+python -m pip install --force-reinstall dist/*.whl
+```
+
+On PowerShell:
+
+```powershell
+cd bindings\python
+python -m maturin build --release --out dist
+python -m pip install --force-reinstall (Get-ChildItem dist\*.whl | Select-Object -Last 1).FullName
 ```
 
 ## Usage

@@ -1,4 +1,4 @@
-# Usage
+﻿# Usage
 
 Version: `v0.0.1`
 
@@ -15,7 +15,7 @@ Install build dependencies:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y build-essential pkg-config libudev-dev python3-venv python3-pip
+sudo apt-get install -y build-essential python3-venv python3-pip
 ```
 
 Allow the current user to access USB serial ports, then log out and back in:
@@ -52,10 +52,11 @@ Python wheel on Ubuntu:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip build twine
-python -m build --wheel bindings/python
-python -m twine check bindings/python/dist/*.whl
-python -m pip install --force-reinstall bindings/python/dist/*.whl
+python -m pip install --upgrade pip maturin twine
+cd bindings/python
+python -m maturin build --release --out dist
+python -m twine check dist/*.whl
+python -m pip install --force-reinstall dist/*.whl
 ```
 
 Python CLI on Ubuntu:
@@ -69,7 +70,7 @@ motorbridge-smart-servo monitor --vendor fashionstar --port /dev/ttyUSB0 --baudr
 Install a GitHub Release wheel on Ubuntu:
 
 ```bash
-python -m pip install ./motorbridge_smart_servo-0.0.1-py3-none-linux_x86_64.whl
+python -m pip install ./motorbridge_smart_servo-0.0.1-cp39-abi3-manylinux2014_x86_64.whl
 ```
 
 ## Native CLI
@@ -144,9 +145,11 @@ cd C:\Users\tianr\Downloads\AMOTOR\fashionstar-uart-sdk-main\motorbridge-smart-s
 Build and install the wheel:
 
 ```powershell
-cargo build -p smart_servo_abi
-python -m build --wheel bindings\python
-python -m pip install --force-reinstall (Get-ChildItem bindings\python\dist\*.whl | Select-Object -Last 1).FullName
+python -m pip install --upgrade maturin
+Push-Location bindings\python
+python -m maturin build --release --out dist
+python -m pip install --force-reinstall (Get-ChildItem dist\*.whl | Select-Object -Last 1).FullName
+Pop-Location
 ```
 
 ## Python CLI
@@ -229,7 +232,7 @@ CI is configured to build:
 
 - Windows x86_64 MSVC native CLI + ABI + Python wheel
 - Linux x86_64 GNU native CLI + ABI + Python wheel
-- Linux aarch64 GNU native CLI + ABI via `cross`
+- Linux aarch64 GNU native CLI + ABI via `cross`, plus Python wheel via maturin manylinux2014
 - macOS x86_64 native CLI + ABI + Python wheel
 - macOS aarch64 native CLI + ABI + Python wheel
 - WASM `wasm32-unknown-unknown` reliability core
@@ -243,7 +246,7 @@ bridge, so hardware bus control remains native for `v0.0.1`.
 Tag pushes automatically create/update a GitHub Release and upload artifacts:
 
 - native CLI + ABI archives
-- Python wheels
+- PyO3 abi3 Python wheels
 - WASM package archive
 
 Create a release tag:
@@ -259,3 +262,4 @@ The workflows are:
 - `.github/workflows/build-wheels.yml`
 
 Both workflows upload assets to the same `v0.0.1` GitHub Release.
+

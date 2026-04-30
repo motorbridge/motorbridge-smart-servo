@@ -22,19 +22,10 @@ pub struct AngleReliabilityState {
     pub zero_candidate_count: u8,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct AngleReliability {
     pub config: AngleReliabilityConfig,
     pub state: AngleReliabilityState,
-}
-
-impl Default for AngleReliability {
-    fn default() -> Self {
-        Self {
-            config: AngleReliabilityConfig::default(),
-            state: AngleReliabilityState::default(),
-        }
-    }
 }
 
 impl AngleReliability {

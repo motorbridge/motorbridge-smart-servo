@@ -1,4 +1,4 @@
-# motorbridge-smart-servo
+﻿# motorbridge-smart-servo
 
 Version: `v0.0.1`
 
@@ -8,9 +8,10 @@ The project mirrors the MotorBridge shape:
 
 - `smart_servo_core`: shared bus, device, error, and controller abstractions
 - `smart_servo_vendors/fashionstar`: FashionStar UART protocol implementation
-- `smart_servo_abi`: stable C ABI for native integration
+- `smart_servo_abi`: stable C ABI for native/C integration
 - `smart_servo_cli`: native CLI for scan/read/move/debug
-- `bindings/python`: Python binding package scaffold
+- `smart_servo_py`: PyO3 native Python extension crate
+- `bindings/python`: maturin Python package using the PyO3 extension
 
 Current vendor target: FashionStar UART smart servo.
 
@@ -26,17 +27,23 @@ cargo run -p smart_servo_cli -- monitor --port COM5 --baudrate 1000000 --id 0 --
 
 ## Python Binding
 
-Build the native ABI first:
+Python uses PyO3 + maturin. The Rust core is compiled directly into the Python
+extension module, so the wheel is platform tagged and does not load an external
+`smart_servo_abi.dll/.so` through `ctypes`.
 
-```bash
-cargo build -p smart_servo_abi
-```
-
-Install the Python package in editable mode:
+Install for development:
 
 ```bash
 cd bindings/python
+python -m pip install -U maturin
 python -m pip install -e .
+```
+
+Build a wheel:
+
+```bash
+cd bindings/python
+python -m maturin build --release --out dist
 ```
 
 Use it from Python:

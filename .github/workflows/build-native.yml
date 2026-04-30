@@ -22,6 +22,11 @@ jobs:
             target: x86_64-pc-windows-msvc
             cli: smart-servo.exe
             abi: smart_servo_abi.dll
+          - name: windows-aarch64-msvc
+            os: windows-latest
+            target: aarch64-pc-windows-msvc
+            cli: smart-servo.exe
+            abi: smart_servo_abi.dll
           - name: linux-x86_64-gnu
             os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
@@ -30,6 +35,12 @@ jobs:
           - name: linux-aarch64-gnu
             os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
+            cli: smart-servo
+            abi: libsmart_servo_abi.so
+            use_cross: true
+          - name: linux-armv7hf-gnu
+            os: ubuntu-latest
+            target: armv7-unknown-linux-gnueabihf
             cli: smart-servo
             abi: libsmart_servo_abi.so
             use_cross: true
@@ -50,6 +61,8 @@ jobs:
         with:
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
       - name: Install Linux native deps
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y pkg-config libudev-dev
@@ -98,6 +111,8 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: wasm32
       - name: Install wasm-bindgen-cli
         run: cargo install wasm-bindgen-cli
       - name: Build WASM

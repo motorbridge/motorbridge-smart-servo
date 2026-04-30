@@ -20,8 +20,16 @@ and language bindings separated.
   - Raw/filtered angle sample struct
 - `smart_servo_cli`
   - Native scan/read/monitor/set commands
+- `smart_servo_py`
+  - PyO3 extension crate
+  - Links the Rust core directly into the Python module
+  - Releases the GIL while serial bus operations block
 - `bindings/python`
-  - Python package scaffold using `ctypes` over the ABI
+  - maturin package metadata, Python CLI, and stable Python wrapper API
+
+The C ABI remains available for native consumers, but Python does not use it.
+Python wheels are native platform wheels built from `smart_servo_py`, avoiding a
+runtime `ctypes` dependency and avoiding incorrect pure-Python wheel tags.
 
 ## Vendor Protocol Boundary
 
