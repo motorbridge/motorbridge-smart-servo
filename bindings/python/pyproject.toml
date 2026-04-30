@@ -1,10 +1,10 @@
-﻿[build-system]
+[build-system]
 requires = ["maturin>=1.7,<2"]
 build-backend = "maturin"
 
 [project]
 name = "motorbridge-smart-servo"
-version = "0.0.1"
+version = "0.0.2"
 description = "PyO3 bindings for MotorBridge Smart Servo"
 requires-python = ">=3.9"
 readme = "README.md"

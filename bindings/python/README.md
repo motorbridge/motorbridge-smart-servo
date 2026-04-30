@@ -1,4 +1,4 @@
-﻿# motorbridge-smart-servo Python binding
+# motorbridge-smart-servo Python binding
 
 PyO3 + maturin Python binding for MotorBridge Smart Servo.
 

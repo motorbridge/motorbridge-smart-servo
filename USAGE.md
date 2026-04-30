@@ -1,6 +1,6 @@
-﻿# Usage
+# Usage
 
-Version: `v0.0.1`
+Version: `v0.0.2`
 
 ## Build
 
@@ -70,7 +70,7 @@ motorbridge-smart-servo monitor --vendor fashionstar --port /dev/ttyUSB0 --baudr
 Install a GitHub Release wheel on Ubuntu:
 
 ```bash
-python -m pip install ./motorbridge_smart_servo-0.0.1-cp39-abi3-manylinux2014_x86_64.whl
+python -m pip install ./motorbridge_smart_servo-0.0.2-cp39-abi3-manylinux2014_x86_64.whl
 ```
 
 ## Native CLI
@@ -233,13 +233,12 @@ CI is configured to build:
 - Windows x86_64 MSVC native CLI + ABI + Python wheel
 - Linux x86_64 GNU native CLI + ABI + Python wheel
 - Linux aarch64 GNU native CLI + ABI via `cross`, plus Python wheel via maturin manylinux2014
-- macOS x86_64 native CLI + ABI + Python wheel
 - macOS aarch64 native CLI + ABI + Python wheel
 - WASM `wasm32-unknown-unknown` reliability core
 
 WASM currently exposes the protocol-independent angle reliability filter. Direct
 UART access from WASM requires a host transport such as WebSerial or a native
-bridge, so hardware bus control remains native for `v0.0.1`.
+bridge, so hardware bus control remains native for `v0.0.2`.
 
 ## GitHub Release
 
@@ -252,8 +251,8 @@ Tag pushes automatically create/update a GitHub Release and upload artifacts:
 Create a release tag:
 
 ```powershell
-git tag v0.0.1
-git push origin v0.0.1
+git tag v0.0.2
+git push origin v0.0.2
 ```
 
 The workflows are:
@@ -261,5 +260,4 @@ The workflows are:
 - `.github/workflows/build-native.yml`
 - `.github/workflows/build-wheels.yml`
 
-Both workflows upload assets to the same `v0.0.1` GitHub Release.
-
+Both workflows upload assets to the same `v0.0.2` GitHub Release.

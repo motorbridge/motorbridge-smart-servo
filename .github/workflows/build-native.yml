@@ -44,11 +44,6 @@ jobs:
             cli: smart-servo
             abi: libsmart_servo_abi.so
             use_cross: true
-          - name: macos-x86_64
-            os: macos-13
-            target: x86_64-apple-darwin
-            cli: smart-servo
-            abi: libsmart_servo_abi.dylib
           - name: macos-aarch64
             os: macos-14
             target: aarch64-apple-darwin
@@ -79,13 +74,15 @@ jobs:
           fi
       - name: Stage artifacts
         shell: bash
+        env:
+          MATRIX_NAME: ${{ matrix.name }}
         run: |
           mkdir -p dist/${{ matrix.name }}
           cp target/${{ matrix.target }}/release/${{ matrix.cli }} dist/${{ matrix.name }}/
           cp target/${{ matrix.target }}/release/${{ matrix.abi }} dist/${{ matrix.name }}/
           cp README.md ARCHITECTURE.md dist/${{ matrix.name }}/
           tar -czf dist/motorbridge-smart-servo-${{ matrix.name }}.tar.gz -C dist/${{ matrix.name }} .
-          sha256sum dist/motorbridge-smart-servo-${{ matrix.name }}.tar.gz > dist/motorbridge-smart-servo-${{ matrix.name }}.tar.gz.sha256
+          python -c 'import hashlib, os, pathlib; archive=pathlib.Path("dist/motorbridge-smart-servo-" + os.environ["MATRIX_NAME"] + ".tar.gz"); digest=hashlib.sha256(archive.read_bytes()).hexdigest(); pathlib.Path(str(archive) + ".sha256").write_text(digest + "  " + archive.name + "\n", encoding="utf-8")'
       - uses: actions/upload-artifact@v4
         with:
           name: motorbridge-smart-servo-${{ matrix.name }}
@@ -96,11 +93,22 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          body: |
+            MotorBridge Smart Servo v0.0.2
+
+            Highlights:
+            - Migrates Python bindings from ctypes to PyO3 + maturin abi3 wheels.
+            - Keeps the stable Python API while compiling the Rust core directly into the Python extension module.
+            - Ships native CLI/ABI artifacts, Python wheels, and WASM package through GitHub Actions.
+            - Preserves A->0->B angle glitch suppression and timeout-safe monitoring.
+
+            Full Changelog: https://github.com/motorbridge/motorbridge-smart-servo/compare/v0.0.1...v0.0.2
+          make_latest: true
           files: |
             dist/motorbridge-smart-servo-${{ matrix.name }}.tar.gz
             dist/motorbridge-smart-servo-${{ matrix.name }}.tar.gz.sha256
           fail_on_unmatched_files: true
-          generate_release_notes: true
+          overwrite_files: true
 
   wasm:
     name: wasm32-unknown-unknown
@@ -122,7 +130,7 @@ jobs:
           mkdir -p dist/wasm
           wasm-bindgen target/wasm32-unknown-unknown/release/smart_servo_wasm.wasm --out-dir dist/wasm --target web
           tar -czf dist/motorbridge-smart-servo-wasm.tar.gz -C dist/wasm .
-          sha256sum dist/motorbridge-smart-servo-wasm.tar.gz > dist/motorbridge-smart-servo-wasm.tar.gz.sha256
+          python -c 'import hashlib, pathlib; archive=pathlib.Path("dist/motorbridge-smart-servo-wasm.tar.gz"); digest=hashlib.sha256(archive.read_bytes()).hexdigest(); pathlib.Path(str(archive) + ".sha256").write_text(digest + "  " + archive.name + "\n", encoding="utf-8")'
       - uses: actions/upload-artifact@v4
         with:
           name: motorbridge-smart-servo-wasm
@@ -133,8 +141,19 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          body: |
+            MotorBridge Smart Servo v0.0.2
+
+            Highlights:
+            - Migrates Python bindings from ctypes to PyO3 + maturin abi3 wheels.
+            - Keeps the stable Python API while compiling the Rust core directly into the Python extension module.
+            - Ships native CLI/ABI artifacts, Python wheels, and WASM package through GitHub Actions.
+            - Preserves A->0->B angle glitch suppression and timeout-safe monitoring.
+
+            Full Changelog: https://github.com/motorbridge/motorbridge-smart-servo/compare/v0.0.1...v0.0.2
+          make_latest: true
           files: |
             dist/motorbridge-smart-servo-wasm.tar.gz
             dist/motorbridge-smart-servo-wasm.tar.gz.sha256
           fail_on_unmatched_files: true
-          generate_release_notes: true
+          overwrite_files: true

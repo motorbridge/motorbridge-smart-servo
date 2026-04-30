@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 name = "smart_servo_py"
 version.workspace = true
 edition.workspace = true

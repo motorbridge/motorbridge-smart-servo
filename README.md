@@ -1,6 +1,6 @@
-﻿# motorbridge-smart-servo
+# motorbridge-smart-servo
 
-Version: `v0.0.1`
+Version: `v0.0.2`
 
 Rust-first control stack for serial bus smart servos.
 
