@@ -4,8 +4,17 @@ Version: `v0.0.2`
 
 ## Build
 
+Windows PowerShell:
+
 ```powershell
 cd C:\Users\tianr\Downloads\AMOTOR\fashionstar-uart-sdk-main\motorbridge-smart-servo
+cargo build --release -p smart_servo_cli -p smart_servo_abi
+```
+
+Ubuntu/bash:
+
+```bash
+cd ~/motorbridge-smart-servo
 cargo build --release -p smart_servo_cli -p smart_servo_abi
 ```
 
@@ -77,40 +86,88 @@ python -m pip install ./motorbridge_smart_servo-0.0.2-cp39-abi3-manylinux2014_x8
 
 Scan online servos:
 
+Windows PowerShell:
+
 ```powershell
 cargo run -p smart_servo_cli -- scan --port COM5 --baudrate 1000000 --max-id 20
 ```
 
+Ubuntu/bash:
+
+```bash
+cargo run -p smart_servo_cli -- scan --port /dev/ttyUSB0 --baudrate 1000000 --max-id 20
+```
+
 The default vendor is `fashionstar`. You can also be explicit:
+
+Windows PowerShell:
 
 ```powershell
 cargo run -p smart_servo_cli -- scan --vendor fashionstar --port COM5 --baudrate 1000000 --max-id 20 --timeout-ms 30
+```
+
+Ubuntu/bash:
+
+```bash
+cargo run -p smart_servo_cli -- scan --vendor fashionstar --port /dev/ttyUSB0 --baudrate 1000000 --max-id 20 --timeout-ms 30
 ```
 
 `--timeout-ms` controls per-ID scan timeout. Use a smaller value for faster full-bus scans.
 
 Read one angle sample:
 
+Windows PowerShell:
+
 ```powershell
 cargo run -p smart_servo_cli -- read-angle --port COM5 --baudrate 1000000 --id 0 --multi-turn
 ```
 
+Ubuntu/bash:
+
+```bash
+cargo run -p smart_servo_cli -- read-angle --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn
+```
+
 Read raw protocol angle only:
+
+Windows PowerShell:
 
 ```powershell
 cargo run -p smart_servo_cli -- read-angle --port COM5 --baudrate 1000000 --id 0 --multi-turn --raw
 ```
 
+Ubuntu/bash:
+
+```bash
+cargo run -p smart_servo_cli -- read-angle --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn --raw
+```
+
 Monitor continuously:
+
+Windows PowerShell:
 
 ```powershell
 cargo run -p smart_servo_cli -- monitor --port COM5 --baudrate 1000000 --id 0 --multi-turn --interval-ms 20
 ```
 
+Ubuntu/bash:
+
+```bash
+cargo run -p smart_servo_cli -- monitor --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn --interval-ms 20
+```
+
 Move a servo:
+
+Windows PowerShell:
 
 ```powershell
 cargo run -p smart_servo_cli -- set-angle --port COM5 --baudrate 1000000 --id 0 --angle -45 --interval-ms 500
+```
+
+Ubuntu/bash:
+
+```bash
+cargo run -p smart_servo_cli -- set-angle --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --angle -45 --interval-ms 500
 ```
 
 Output meaning:
@@ -143,12 +200,24 @@ single-turn `interval_ms` are rejected before sending.
 
 Create and use the local venv:
 
+Windows PowerShell:
+
 ```powershell
 cd C:\Users\tianr\Downloads\AMOTOR\fashionstar-uart-sdk-main\motorbridge-smart-servo
 .\.venv\Scripts\Activate.ps1
 ```
 
+Ubuntu/bash:
+
+```bash
+cd ~/motorbridge-smart-servo
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
 Build and install the wheel:
+
+Windows PowerShell:
 
 ```powershell
 python -m pip install --upgrade maturin
@@ -158,30 +227,72 @@ python -m pip install --force-reinstall (Get-ChildItem dist\*.whl | Select-Objec
 Pop-Location
 ```
 
+Ubuntu/bash:
+
+```bash
+python -m pip install --upgrade maturin
+cd bindings/python
+python -m maturin build --release --out dist
+python -m pip install --force-reinstall dist/*.whl
+cd ../..
+```
+
 ## Python CLI
 
 Scan:
+
+Windows PowerShell:
 
 ```powershell
 motorbridge-smart-servo scan --vendor fashionstar --port COM5 --baudrate 1000000 --max-id 20
 ```
 
+Ubuntu/bash:
+
+```bash
+motorbridge-smart-servo scan --vendor fashionstar --port /dev/ttyUSB0 --baudrate 1000000 --max-id 20
+```
+
 Read one sample:
+
+Windows PowerShell:
 
 ```powershell
 motorbridge-smart-servo read-angle --port COM5 --baudrate 1000000 --id 0 --multi-turn
 ```
 
+Ubuntu/bash:
+
+```bash
+motorbridge-smart-servo read-angle --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn
+```
+
 Monitor:
+
+Windows PowerShell:
 
 ```powershell
 motorbridge-smart-servo monitor --port COM5 --baudrate 1000000 --id 0 --multi-turn --interval-s 0.02
 ```
 
+Ubuntu/bash:
+
+```bash
+motorbridge-smart-servo monitor --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn --interval-s 0.02
+```
+
 Move:
+
+Windows PowerShell:
 
 ```powershell
 motorbridge-smart-servo set-angle --port COM5 --baudrate 1000000 --id 0 --angle -45 --interval-ms 500
+```
+
+Ubuntu/bash:
+
+```bash
+motorbridge-smart-servo set-angle --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --angle -45 --interval-ms 500
 ```
 
 ## Python API
@@ -236,12 +347,24 @@ with FashionStarServo("COM5") as bus:
 
 Python SDK examples live in `examples/python`:
 
+Windows PowerShell:
+
 ```powershell
 python examples\python\scan.py
 python examples\python\read_angle.py
 python examples\python\monitor.py
 python examples\python\ping.py
 python examples\python\set_angle.py
+```
+
+Ubuntu/bash:
+
+```bash
+python examples/python/scan.py
+python examples/python/read_angle.py
+python examples/python/monitor.py
+python examples/python/ping.py
+python examples/python/set_angle.py
 ```
 
 WASM/browser examples live in `examples/wasm`.
@@ -263,15 +386,32 @@ console.log(sample.raw_deg, sample.filtered_deg, sample.reliable);
 
 Build the browser package:
 
+Windows PowerShell:
+
 ```powershell
 examples\wasm\browser-filter-demo\build.ps1
 ```
 
+Ubuntu/bash:
+
+```bash
+bash examples/wasm/browser-filter-demo/build.sh
+```
+
 Run the browser demo:
+
+Windows PowerShell:
 
 ```powershell
 cd examples\wasm\browser-filter-demo
 python -m http.server 8080
+```
+
+Ubuntu/bash:
+
+```bash
+cd examples/wasm/browser-filter-demo
+python3 -m http.server 8080
 ```
 
 Open `http://localhost:8080` in Chrome or Edge, then click `Connect WebSerial`.
@@ -290,9 +430,9 @@ CI is configured to build:
 - macOS aarch64 native CLI + ABI + Python wheel
 - WASM `wasm32-unknown-unknown` reliability core
 
-WASM currently exposes the protocol-independent angle reliability filter. Direct
-UART access from WASM requires a host transport such as WebSerial or a native
-bridge, so hardware bus control remains native for `v0.0.2`.
+WASM currently exposes FashionStar query/decode helpers and the angle reliability
+filter. Browser hardware access is implemented in JavaScript through WebSerial;
+WASM owns packet encode/decode and filtering.
 
 ## GitHub Release
 

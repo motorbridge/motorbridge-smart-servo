@@ -4,13 +4,26 @@ These examples use the PyO3 Python package (`motorbridge-smart-servo`) to talk t
 
 Install the package first:
 
+Windows PowerShell:
+
 ```powershell
 cd C:\Users\tianr\Downloads\AMOTOR\fashionstar-uart-sdk-main\motorbridge-smart-servo
 .\.venv\Scripts\Activate.ps1
 python -m pip install --force-reinstall bindings\python\dist\motorbridge_smart_servo-0.0.2-cp39-abi3-win_amd64.whl
 ```
 
+Ubuntu/bash:
+
+```bash
+cd ~/motorbridge-smart-servo
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --force-reinstall bindings/python/dist/*.whl
+```
+
 Run examples:
+
+Windows PowerShell:
 
 ```powershell
 python examples\python\scan.py
@@ -18,6 +31,16 @@ python examples\python\read_angle.py
 python examples\python\monitor.py
 python examples\python\ping.py
 python examples\python\set_angle.py
+```
+
+Ubuntu/bash:
+
+```bash
+python examples/python/scan.py
+python examples/python/read_angle.py
+python examples/python/monitor.py
+python examples/python/ping.py
+python examples/python/set_angle.py
 ```
 
 Edit `PORT` inside each file for your system, for example `COM5` on Windows or `/dev/ttyUSB0` on Linux.

@@ -34,9 +34,18 @@ bash examples/wasm/browser-filter-demo/build.sh
 
 Serve the directory over HTTP. WebSerial is available only in secure contexts, and `localhost` counts as secure.
 
+Windows PowerShell:
+
 ```powershell
 cd examples\wasm\browser-filter-demo
 python -m http.server 8080
+```
+
+Ubuntu/bash:
+
+```bash
+cd examples/wasm/browser-filter-demo
+python3 -m http.server 8080
 ```
 
 Open in Chrome or Edge:

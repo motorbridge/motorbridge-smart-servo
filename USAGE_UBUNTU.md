@@ -356,42 +356,42 @@ with FashionStarServo("/dev/ttyUSB0", 1_000_000) as bus:
 
 所有示例位于 `examples/` 目录，统一使用 `/dev/ttyUSB0` 端口。按需修改。
 
-### 7.1 扫描总线（`python_scan.py`）
+### 7.1 扫描总线（`examples/python/scan.py`）
 
 ```bash
-python examples/python_scan.py
+python examples/python/scan.py
 ```
 
-### 7.2 Ping 单个舵机（`python_ping.py`）
+### 7.2 Ping 单个舵机（`examples/python/ping.py`）
 
 逐个 ping ID 0-9，显示在线状态：
 
 ```bash
-python examples/python_ping.py
+python examples/python/ping.py
 ```
 
-### 7.3 读取角度（`python_read_angle.py`）
+### 7.3 读取角度（`examples/python/read_angle.py`）
 
 读取单次角度，展示 `raw_deg` / `filtered_deg` / `reliable` 及便捷方法：
 
 ```bash
-python examples/python_read_angle.py
+python examples/python/read_angle.py
 ```
 
-### 7.4 持续监控（`python_monitor.py`）
+### 7.4 持续监控（`examples/python/monitor.py`）
 
 以 50Hz 持续采样，`Ctrl+C` 停止：
 
 ```bash
-python examples/python_monitor.py
+python examples/python/monitor.py
 ```
 
-### 7.5 控制转动（`python_set_angle.py`）
+### 7.5 控制转动（`examples/python/set_angle.py`）
 
 > **[未测试] 此脚本会驱动舵机物理运动，操作不当可能导致机械损坏。请确认舵机安装安全、运动范围无遮挡后再使用。**
 
 ```bash
-python examples/python_set_angle.py
+python examples/python/set_angle.py
 ```
 
 ## 8. 输出含义说明
@@ -427,6 +427,12 @@ FashionStar 舵机掉电瞬间会产生 `A → 0 → B` 的跳变（中间经过
 滤波值:   -70 → -70 →  0  →  0  →  0
 可信度:    T  →  F  →  T  →  T  →  T
 ```
+
+当前 core 默认需要连续 `30` 个接近 0 的样本才确认真实 0。
+在 `20ms` 采样间隔下约等于 `0.6s`。WASM WebSerial demo 默认
+`Zero hold seconds = 3.0`，约等于 `150` 个样本，用于更稳地压制真实
+上电测试中观察到的较长 0 毛刺。后续建议把 core 也改成时间语义或
+统一更长默认窗口，让 CLI、Python、C ABI、WASM 默认表现一致。
 
 ### 通信中断
 
@@ -550,11 +556,13 @@ motorbridge-smart-servo/
 │           ├── py.typed        # PEP 561 类型标记
 │           └── native/.gitkeep # 不再存放 .so，仅保留目录
 └── examples/
-    ├── python_scan.py          # 扫描总线上的在线舵机
-    ├── python_ping.py          # Ping 单个舵机检查在线状态
-    ├── python_read_angle.py    # 读取单次角度（含便捷方法）
-    ├── python_monitor.py       # 持续监控（50Hz）
-    └── python_set_angle.py     # 控制舵机转动（注意安全警告）
+    ├── python/                 # Python SDK 示例
+    │   ├── scan.py             # 扫描总线上的在线舵机
+    │   ├── ping.py             # Ping 单个舵机检查在线状态
+    │   ├── read_angle.py       # 读取单次角度（含便捷方法）
+    │   ├── monitor.py          # 持续监控（50Hz）
+    │   └── set_angle.py        # 控制舵机转动（注意安全警告）
+    └── wasm/                   # 浏览器 WebSerial + WASM 示例
 ```
 
 关键变化（v0.0.1 → v0.0.2）：
