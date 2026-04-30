@@ -453,6 +453,7 @@ name = "smart_servo_wasm"
 version = "0.0.2"
 dependencies = [
  "smart_servo_core",
+ "smart_servo_vendor_fashionstar",
  "wasm-bindgen",
 ]
 

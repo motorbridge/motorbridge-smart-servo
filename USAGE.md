@@ -243,11 +243,15 @@ WASM/browser examples live in `examples/wasm`.
 ## WASM Browser Binding
 
 `smart_servo_wasm` is a `wasm-bindgen` binding for JavaScript and browsers. It
-currently exposes the protocol-independent angle reliability filter:
+exposes FashionStar query/decode helpers and the angle reliability filter:
 
 ```js
+const packet = fashionstar_query_angle_packet(0, true);
+await writer.write(packet);
+
+const decoded = fashionstar_decode_angle(rxBytes, 0, true);
 const filter = new WasmAngleReliability();
-const sample = filter.filter(rawAngleDeg);
+const sample = filter.filter(decoded.raw_deg);
 console.log(sample.raw_deg, sample.filtered_deg, sample.reliable);
 ```
 
@@ -264,10 +268,9 @@ cd examples\wasm\browser-filter-demo
 python -m http.server 8080
 ```
 
-Open `http://localhost:8080`.
+Open `http://localhost:8080` in Chrome or Edge, then click `Connect WebSerial`.
 
-The WASM binding does not open UART directly. Browser hardware control needs
-WebSerial or a native bridge to provide raw angle samples.
+JavaScript owns WebSerial I/O; WASM owns packet encode/decode and filtering.
 
 ## Platform Support
 

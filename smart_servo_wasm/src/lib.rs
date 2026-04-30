@@ -1,4 +1,5 @@
 use smart_servo_core::AngleReliability;
+use smart_servo_vendor_fashionstar::protocol;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -54,5 +55,60 @@ impl WasmAngleSample {
     #[wasm_bindgen(getter)]
     pub fn reliable(&self) -> bool {
         self.reliable
+    }
+}
+
+#[wasm_bindgen]
+pub fn fashionstar_query_angle_packet(id: u8, multi_turn: bool) -> Result<Vec<u8>, JsValue> {
+    protocol::encode_query_angle(id, multi_turn).map_err(|err| JsValue::from_str(&err.to_string()))
+}
+
+#[wasm_bindgen]
+pub fn fashionstar_decode_angle(data: &[u8], id: u8, multi_turn: bool) -> WasmAngleDecodeResult {
+    let report = protocol::parse_response_stream(data);
+    let first_error = report.errors.first().map(ToString::to_string);
+
+    for packet in report.packets {
+        if let Ok((reply_id, raw_deg)) = protocol::decode_angle(&packet, multi_turn) {
+            if reply_id == id {
+                return WasmAngleDecodeResult {
+                    found: true,
+                    raw_deg,
+                    error: None,
+                };
+            }
+        }
+    }
+
+    WasmAngleDecodeResult {
+        found: false,
+        raw_deg: 0.0,
+        error: first_error,
+    }
+}
+
+#[wasm_bindgen]
+#[derive(Debug, Clone)]
+pub struct WasmAngleDecodeResult {
+    found: bool,
+    raw_deg: f32,
+    error: Option<String>,
+}
+
+#[wasm_bindgen]
+impl WasmAngleDecodeResult {
+    #[wasm_bindgen(getter)]
+    pub fn found(&self) -> bool {
+        self.found
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn raw_deg(&self) -> f32 {
+        self.raw_deg
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn error(&self) -> Option<String> {
+        self.error.clone()
     }
 }

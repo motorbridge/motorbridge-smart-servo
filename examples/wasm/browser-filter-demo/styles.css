@@ -67,9 +67,40 @@ h1 {
 .controls {
   display: flex;
   flex-wrap: wrap;
+  align-items: end;
   gap: 12px;
   padding: 16px;
   margin-bottom: 16px;
+}
+
+.controls label {
+  display: grid;
+  gap: 6px;
+  min-width: 120px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.controls .check {
+  display: inline-flex;
+  align-items: center;
+  min-width: auto;
+  padding: 12px 4px;
+}
+
+input {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  padding: 11px 12px;
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.24);
+  outline: none;
+}
+
+input[type="checkbox"] {
+  width: auto;
 }
 
 button {
@@ -83,12 +114,19 @@ button {
 }
 
 button:nth-child(2) {
-  background: var(--filtered);
+  background: var(--accent);
 }
 
-button:nth-child(3) {
+button:nth-of-type(3),
+button:nth-of-type(4),
+button:nth-of-type(5) {
   color: var(--text);
   background: rgba(255, 255, 255, 0.14);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .chart-card {

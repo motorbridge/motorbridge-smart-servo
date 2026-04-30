@@ -18,6 +18,20 @@
       </section>
 
       <section class="panel controls">
+        <label>
+          Servo ID
+          <input id="servo-id" type="number" min="0" max="253" value="0" />
+        </label>
+        <label>
+          Baudrate
+          <input id="baudrate" type="number" min="9600" value="1000000" />
+        </label>
+        <label class="check">
+          <input id="multi-turn" type="checkbox" checked />
+          multi-turn
+        </label>
+        <button id="connect">Connect WebSerial</button>
+        <button id="disconnect" disabled>Disconnect</button>
         <button id="play-glitch">Simulate A -> 0 -> B glitch</button>
         <button id="play-zero">Simulate real zero hold</button>
         <button id="clear">Clear</button>
@@ -35,14 +49,16 @@
         <div><strong>raw</strong><span id="raw">--</span></div>
         <div><strong>filtered</strong><span id="filtered">--</span></div>
         <div><strong>reliable</strong><span id="reliable">--</span></div>
+        <div><strong>status</strong><span id="status">simulation mode</span></div>
       </section>
 
       <section class="panel notes">
         <h2>What this proves</h2>
         <p>
-          If the raw stream briefly reports zero during a power cycle, the Rust
-          filter holds the last safe angle and marks the sample unreliable. If
-          zero remains stable long enough, it is accepted as a real angle.
+          Use simulation buttons without hardware, or connect a FashionStar UART
+          bus through Chrome/Edge WebSerial. JavaScript owns the serial port;
+          WASM owns FashionStar packet encoding/decoding and the reliability
+          filter.
         </p>
       </section>
     </main>

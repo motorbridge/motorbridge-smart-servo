@@ -101,9 +101,10 @@ motorbridge-smart-servo set-angle --port /dev/ttyUSB0 --baudrate 1000000 --id 0 
 
 ## Quick Start - WASM
 
-The WASM crate is a `wasm-bindgen` JavaScript/browser binding for the Rust angle
-reliability filter. It is directly usable from JS after generating the
-wasm-bindgen package, but it does not open UART by itself.
+The WASM crate is a `wasm-bindgen` JavaScript/browser binding for FashionStar
+query/decode logic and the Rust angle reliability filter. The browser demo uses
+WebSerial for real UART I/O, then passes bytes through WASM for protocol decode
+and filtering.
 
 ```bash
 bash examples/wasm/browser-filter-demo/build.sh
@@ -115,6 +116,7 @@ On Windows PowerShell, run `examples\wasm\browser-filter-demo\build.ps1`
 instead of the `bash ...` command.
 
 Open `http://localhost:8080` to see raw vs filtered angle visualization.
+Use Chrome or Edge and click `Connect WebSerial` to read a real servo bus.
 
 ## Platform Support
 

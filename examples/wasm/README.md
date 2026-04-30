@@ -1,14 +1,16 @@
 # WASM examples
 
-`smart_servo_wasm` is a `wasm-bindgen` JavaScript/browser binding for the protocol-independent reliability core.
+`smart_servo_wasm` is a `wasm-bindgen` JavaScript/browser binding for the browser side of MotorBridge Smart Servo.
 
 Current scope:
 
-- Available in WASM: `WasmAngleReliability` and `WasmAngleSample`.
-- Not in WASM yet: serial UART transport and FashionStar command protocol.
+- WASM owns the FashionStar query-angle packet encoder.
+- WASM owns the FashionStar angle response decoder.
+- WASM owns the `A -> 0 -> B` angle reliability filter.
+- JavaScript owns browser serial I/O through WebSerial, because Rust `serialport` is native-only.
 
-That means the browser can use the exact Rust filter to suppress `A -> 0 -> B` angle glitches, but direct hardware control still needs WebSerial integration or a native bridge that feeds raw angle samples into the WASM filter.
+So the browser demo can read real servo angle data when opened in a WebSerial-capable browser such as Chrome or Edge on `localhost` or HTTPS.
 
-## Browser filter demo
+## Browser WebSerial demo
 
 See [`browser-filter-demo`](browser-filter-demo/README.md).
