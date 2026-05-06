@@ -16,16 +16,11 @@ impl WasmAngleReliability {
         }
     }
 
-    pub fn with_config(
-        zero_eps_deg: f32,
-        zero_jump_min_deg: f32,
-        zero_confirm_samples: u16,
-    ) -> Self {
+    pub fn with_config(zero_eps_deg: f32, zero_confirm_samples: u16) -> Self {
         Self {
             inner: AngleReliability {
                 config: AngleReliabilityConfig {
                     zero_eps_deg,
-                    zero_jump_min_deg,
                     zero_confirm_samples: zero_confirm_samples.max(1),
                 },
                 state: Default::default(),

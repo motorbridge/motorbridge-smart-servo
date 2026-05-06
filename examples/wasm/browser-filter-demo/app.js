@@ -254,7 +254,7 @@ async function play(values, delayMs = 50) {
 }
 
 function reset() {
-  filter = WasmAngleReliability.with_config(1.0, 20.0, zeroConfirmSamples());
+  filter = WasmAngleReliability.with_config(0.2, zeroConfirmSamples());
   points = [];
   render();
 }
