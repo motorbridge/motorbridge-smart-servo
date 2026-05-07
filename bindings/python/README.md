@@ -3,6 +3,10 @@
 This package is the PyO3 + maturin Python binding for MotorBridge Smart Servo.
 It currently targets the FashionStar UART smart-servo protocol.
 
+> Current status (important): angle write/control commands are temporarily
+> considered unsupported in this project release line. Read/monitor APIs are
+> the supported and recommended path.
+
 The Rust core is compiled into `motorbridge_smart_servo._native`, so the wheel
 contains native code directly. There is no runtime `ctypes.CDLL(...)` loading
 step and no external ABI DLL/SO required by Python.
@@ -40,6 +44,9 @@ Common methods:
 - `read_filtered_angle(servo_id, multi_turn=True) -> float`
 - `monitor(servo_id, multi_turn=True, interval_s=0.02, count=None)`
 - `set_angle(servo_id, angle_deg, multi_turn=False, interval_ms=0)`
+
+Note: `set_angle` is currently kept for API compatibility, but write-control
+behavior is not guaranteed at this stage.
 
 ## Quick Start (Development Install)
 
@@ -108,12 +115,15 @@ with SmartServoBus.open(vendor="fashionstar", port="/dev/ttyUSB0") as bus:
 sample has been observed. In those moments you can see `reliable=False` while
 `filtered_deg` holds the last safe value.
 
-## Move Command
+## Move Command (Temporarily Unsupported)
 
 ```python
 with SmartServoBus.open(vendor="fashionstar", port="/dev/ttyUSB0") as bus:
     bus.set_angle(0, -45.0, multi_turn=False, interval_ms=500)
 ```
+
+For now, treat movement control as experimental and disabled in production use.
+Use read/monitor methods for stable operation.
 
 ## Build a Wheel (`.whl`)
 

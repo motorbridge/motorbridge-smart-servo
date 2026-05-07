@@ -86,6 +86,26 @@ enum Command {
         #[arg(long)]
         interval_ms: Option<u32>,
     },
+    QueryMonitor {
+        #[arg(long, default_value = "fashionstar")]
+        vendor: String,
+        #[arg(long)]
+        port: String,
+        #[arg(long, default_value_t = 1_000_000)]
+        baudrate: u32,
+        #[arg(long)]
+        id: u8,
+    },
+    QueryMode {
+        #[arg(long, default_value = "fashionstar")]
+        vendor: String,
+        #[arg(long)]
+        port: String,
+        #[arg(long, default_value_t = 1_000_000)]
+        baudrate: u32,
+        #[arg(long)]
+        id: u8,
+    },
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -172,6 +192,61 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } => {
             let mut ctl = open_fashionstar_or_error(&vendor, port, baudrate)?;
             ctl.set_angle(id, angle, multi_turn, interval_ms)?;
+        }
+        Command::QueryMonitor {
+            vendor,
+            port,
+            baudrate,
+            id,
+        } => {
+            let mut ctl = open_fashionstar_or_error(&vendor, port, baudrate)?;
+            let m = ctl.query_monitor(id)?;
+            println!(
+                "id={} voltage={:.3}V current={:.3}A power={:.3}W temp_raw={} status=0x{:02x} angle={:.3} turn={}",
+                m.id,
+                m.voltage_mv as f32 / 1000.0,
+                m.current_ma as f32 / 1000.0,
+                m.power_mw as f32 / 1000.0,
+                m.temp_raw,
+                m.status,
+                m.angle_deg,
+                m.turn
+            );
+        }
+        Command::QueryMode {
+            vendor,
+            port,
+            baudrate,
+            id,
+        } => {
+            let mut ctl = open_fashionstar_or_error(&vendor, port, baudrate)?;
+            let m = ctl.query_monitor(id)?;
+            let busy = (m.status & 0x01) != 0;
+            let has_exec_error = (m.status & 0x02) != 0;
+            let has_stall = (m.status & 0x04) != 0;
+            let has_voltage_high = (m.status & 0x08) != 0;
+            let has_voltage_low = (m.status & 0x10) != 0;
+            let has_current_err = (m.status & 0x20) != 0;
+            let has_power_err = (m.status & 0x40) != 0;
+            let has_temp_err = (m.status & 0x80) != 0;
+
+            println!("id={}", m.id);
+            println!("status=0x{:02x}", m.status);
+            println!(
+                "flags: busy={} exec_error={} stall={} v_high={} v_low={} i_err={} p_err={} t_err={}",
+                busy, has_exec_error, has_stall, has_voltage_high, has_voltage_low, has_current_err, has_power_err, has_temp_err
+            );
+            println!(
+                "telemetry: voltage={:.3}V current={:.3}A power={:.3}W angle={:.3} turn={}",
+                m.voltage_mv as f32 / 1000.0,
+                m.current_ma as f32 / 1000.0,
+                m.power_mw as f32 / 1000.0,
+                m.angle_deg,
+                m.turn
+            );
+            println!(
+                "mode_hint: protocol has no direct 'current mode' query; this is status-based inference only."
+            );
         }
     }
 

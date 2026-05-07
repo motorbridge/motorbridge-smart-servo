@@ -36,7 +36,6 @@ python examples\python\scan.py
 python examples\python\ping.py
 python examples\python\read_angle.py
 python examples\python\monitor.py
-python examples\python\set_angle.py
 ```
 
 Linux/macOS (bash):
@@ -46,8 +45,10 @@ python examples/python/scan.py
 python examples/python/ping.py
 python examples/python/read_angle.py
 python examples/python/monitor.py
-python examples/python/set_angle.py
 ```
+
+`set_angle.py` is intentionally excluded from the default run list for now.
+In the current release line, write-control is not considered stable/supported.
 
 ## Optional Advanced Examples
 
@@ -55,6 +56,7 @@ python examples/python/set_angle.py
 - `test_angle.py`: repeated sample test with raw/filtered stats
 - `monitor_all_joints.py`: monitor multiple servo IDs in one loop
 - `plot_all_joints.py`: realtime plotting (requires matplotlib and numpy)
+- `set_angle.py`: write-control demo (currently experimental / not recommended)
 
 If needed:
 

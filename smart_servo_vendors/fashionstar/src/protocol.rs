@@ -7,13 +7,27 @@ pub const CODE_PING: u8 = 1;
 pub const CODE_SET_SERVO_ANGLE: u8 = 8;
 pub const CODE_QUERY_SERVO_ANGLE: u8 = 10;
 pub const CODE_SET_SERVO_ANGLE_BY_INTERVAL: u8 = 11;
+pub const CODE_SET_SERVO_ANGLE_MTURN: u8 = 13;
 pub const CODE_SET_SERVO_ANGLE_MTURN_BY_INTERVAL: u8 = 14;
 pub const CODE_QUERY_SERVO_ANGLE_MTURN: u8 = 16;
+pub const CODE_QUERY_SERVO_MONITOR: u8 = 22;
 
 #[derive(Debug, Clone)]
 pub struct Packet {
     pub code: u8,
     pub params: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ServoMonitor {
+    pub id: u8,
+    pub voltage_mv: u16,
+    pub current_ma: u16,
+    pub power_mw: u16,
+    pub temp_raw: u16,
+    pub status: u8,
+    pub angle_deg: f32,
+    pub turn: i16,
 }
 
 pub fn checksum(header: [u8; 2], code: u8, params: &[u8]) -> u8 {
@@ -95,6 +109,10 @@ pub fn encode_query_angle(id: u8, multi_turn: bool) -> Result<Vec<u8>> {
     pack_request(code, &[id])
 }
 
+pub fn encode_query_monitor(id: u8) -> Result<Vec<u8>> {
+    pack_request(CODE_QUERY_SERVO_MONITOR, &[id])
+}
+
 pub fn encode_set_angle(
     id: u8,
     angle_deg: f32,
@@ -107,6 +125,7 @@ pub fn encode_set_angle(
         ));
     }
     let angle_raw = (angle_deg * 10.0).round() as i32;
+    let interval_ms = interval_ms.filter(|v| *v != 0);
     match (multi_turn, interval_ms) {
         (true, Some(interval)) => {
             if interval > 4_096_000 {
@@ -141,15 +160,23 @@ pub fn encode_set_angle(
         }
         (false, None) => {
             let clamped = angle_raw.clamp(-1800, 1800) as i16;
-            let mut p = Vec::with_capacity(3);
+            // Match vendor SDK: CODE_SET_SERVO_ANGLE uses angle + interval + power.
+            let mut p = Vec::with_capacity(7);
             p.push(id);
             p.extend_from_slice(&clamped.to_le_bytes());
+            p.extend_from_slice(&0_u16.to_le_bytes());
+            p.extend_from_slice(&0_u16.to_le_bytes());
             pack_request(CODE_SET_SERVO_ANGLE, &p)
         }
-        (true, None) => Err(SmartServoError::Unsupported(
-            "FashionStar multi-turn set-angle requires interval_ms in this first implementation"
-                .to_string(),
-        )),
+        (true, None) => {
+            // Match vendor SDK CODE_SET_SERVO_ANGLE_MTURN: id + angle(i32) + interval(u32) + power(u16).
+            let mut p = Vec::with_capacity(11);
+            p.push(id);
+            p.extend_from_slice(&angle_raw.to_le_bytes());
+            p.extend_from_slice(&0_u32.to_le_bytes());
+            p.extend_from_slice(&0_u16.to_le_bytes());
+            pack_request(CODE_SET_SERVO_ANGLE_MTURN, &p)
+        }
     }
 }
 
@@ -177,6 +204,37 @@ pub fn decode_angle(packet: &Packet, multi_turn: bool) -> Result<(u8, f32)> {
         let raw = i16::from_le_bytes(packet.params[1..3].try_into().unwrap());
         Ok((id, raw as f32 / 10.0))
     }
+}
+
+pub fn decode_monitor(packet: &Packet) -> Result<ServoMonitor> {
+    if packet.code != CODE_QUERY_SERVO_MONITOR || packet.params.len() < 14 {
+        return Err(SmartServoError::Protocol(
+            "unexpected monitor response".to_string(),
+        ));
+    }
+    let p = &packet.params;
+    let id = p[0];
+    let voltage_mv = u16::from_le_bytes([p[1], p[2]]);
+    let current_ma = u16::from_le_bytes([p[3], p[4]]);
+    let power_mw = u16::from_le_bytes([p[5], p[6]]);
+    let temp_raw = u16::from_le_bytes([p[7], p[8]]);
+    let status = p[9];
+    let angle_raw = i32::from_le_bytes([p[10], p[11], p[12], p[13]]);
+    let turn = if p.len() >= 16 {
+        i16::from_le_bytes([p[14], p[15]])
+    } else {
+        0
+    };
+    Ok(ServoMonitor {
+        id,
+        voltage_mv,
+        current_ma,
+        power_mw,
+        temp_raw,
+        status,
+        angle_deg: angle_raw as f32 / 10.0,
+        turn,
+    })
 }
 
 #[cfg(test)]

@@ -7,6 +7,7 @@ use smart_servo_core::{
 };
 
 use crate::protocol;
+pub use crate::protocol::ServoMonitor;
 
 pub struct FashionStarController {
     bus: SerialBus,
@@ -36,6 +37,26 @@ impl FashionStarController {
             if let Ok((reply_id, angle)) = protocol::decode_angle(&packet, multi_turn) {
                 if reply_id == id {
                     return Ok(angle);
+                }
+            }
+        }
+        Err(SmartServoError::Timeout)
+    }
+
+    pub fn query_monitor(&mut self, id: ServoId) -> Result<ServoMonitor> {
+        self.bus.clear()?;
+        self.bus.write_all(&protocol::encode_query_monitor(id)?)?;
+        let data = self.bus.read_until_idle()?;
+        let report = protocol::parse_response_stream(&data);
+        if report.packets.is_empty() {
+            if let Some(err) = report.errors.into_iter().next() {
+                return Err(err);
+            }
+        }
+        for packet in report.packets {
+            if let Ok(sample) = protocol::decode_monitor(&packet) {
+                if sample.id == id {
+                    return Ok(sample);
                 }
             }
         }

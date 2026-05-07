@@ -17,11 +17,13 @@ fn check_servo_id(servo_id: u8) -> ServoId {
     servo_id
 }
 
-fn checked_interval(interval_ms: u32) -> PyResult<u32> {
-    if interval_ms > u16::MAX as u32 {
-        return Err(PyValueError::new_err(
-            "interval_ms must be in range 0..65535",
-        ));
+fn checked_interval(interval_ms: u32, multi_turn: bool) -> PyResult<u32> {
+    let max = if multi_turn { 4_096_000 } else { u16::MAX as u32 };
+    if interval_ms > max {
+        return Err(PyValueError::new_err(format!(
+            "interval_ms must be in range 0..{}",
+            max
+        )));
     }
     Ok(interval_ms)
 }
@@ -177,7 +179,7 @@ impl PyFashionStarServo {
     ) -> PyResult<()> {
         let servo_id = check_servo_id(servo_id);
         let angle_deg = finite_angle(angle_deg)?;
-        let interval_ms = checked_interval(interval_ms)?;
+        let interval_ms = checked_interval(interval_ms, multi_turn)?;
         py.detach(|| {
             self.with_controller(|controller| {
                 controller
