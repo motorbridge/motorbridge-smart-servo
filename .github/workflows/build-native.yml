@@ -122,7 +122,7 @@ jobs:
         with:
           key: wasm32
       - name: Install wasm-bindgen-cli
-        run: cargo install wasm-bindgen-cli
+        run: cargo install wasm-bindgen-cli --version 0.2.120 --locked
       - name: Build WASM
         run: cargo build --release -p smart_servo_wasm --target wasm32-unknown-unknown
       - name: Generate JS bindings
