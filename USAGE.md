@@ -1,6 +1,6 @@
 # Usage
 
-Version: `v0.0.2`
+Version: `v0.0.3`
 
 ## Build
 
@@ -445,8 +445,8 @@ Tag pushes automatically create/update a GitHub Release and upload artifacts:
 Create a release tag:
 
 ```powershell
-git tag v0.0.2
-git push origin v0.0.2
+git tag v0.0.3
+git push origin v0.0.3
 ```
 
 The workflows are:
@@ -454,4 +454,4 @@ The workflows are:
 - `.github/workflows/build-native.yml`
 - `.github/workflows/build-wheels.yml`
 
-Both workflows upload assets to the same `v0.0.2` GitHub Release.
+Both workflows upload assets to the same `v0.0.3` GitHub Release.
