@@ -1,46 +1,72 @@
-# Python examples
+# Python Examples
 
-These examples use the PyO3 Python package (`motorbridge-smart-servo`) to talk to a FashionStar UART smart-servo bus.
+These scripts use the published PyPI package:
 
-Install the package first:
+- Package name: `motorbridge-smart-servo`
+- Import name: `motorbridge_smart_servo`
+
+## Install Latest Package from PyPI
 
 Windows PowerShell:
 
 ```powershell
-cd C:\Users\tianr\Downloads\AMOTOR\fashionstar-uart-sdk-main\motorbridge-smart-servo
+python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install --force-reinstall bindings\python\dist\motorbridge_smart_servo-0.0.2-cp39-abi3-win_amd64.whl
+python -m pip install -U pip
+python -m pip install motorbridge-smart-servo
 ```
 
-Ubuntu/bash:
+Linux/macOS (bash):
 
 ```bash
-cd ~/motorbridge-smart-servo
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install --force-reinstall bindings/python/dist/*.whl
+python -m pip install -U pip
+python -m pip install motorbridge-smart-servo
 ```
 
-Run examples:
+## Run Examples
+
+From repository root:
 
 Windows PowerShell:
 
 ```powershell
 python examples\python\scan.py
+python examples\python\ping.py
 python examples\python\read_angle.py
 python examples\python\monitor.py
-python examples\python\ping.py
 python examples\python\set_angle.py
 ```
 
-Ubuntu/bash:
+Linux/macOS (bash):
 
 ```bash
 python examples/python/scan.py
+python examples/python/ping.py
 python examples/python/read_angle.py
 python examples/python/monitor.py
-python examples/python/ping.py
 python examples/python/set_angle.py
 ```
 
-Edit `PORT` inside each file for your system, for example `COM5` on Windows or `/dev/ttyUSB0` on Linux.
+## Optional Advanced Examples
+
+- `test_connection.py`: quick bus health check and basic read test
+- `test_angle.py`: repeated sample test with raw/filtered stats
+- `monitor_all_joints.py`: monitor multiple servo IDs in one loop
+- `plot_all_joints.py`: realtime plotting (requires matplotlib and numpy)
+
+If needed:
+
+```bash
+python -m pip install matplotlib numpy
+```
+
+## Port Configuration
+
+Set `PORT` in each script before running:
+
+- Windows: `COM5` (example)
+- Linux: `/dev/ttyUSB0` or `/dev/ttyACM0`
+
+Baudrate is typically `1_000_000` for FashionStar UART smart servos.
