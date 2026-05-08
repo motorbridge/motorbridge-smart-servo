@@ -4,6 +4,7 @@ from .fashionstar import (
     FashionStarServo,
     LibraryLoadError,
     ServoBusError,
+    ServoMonitor,
     SmartServoError,
     list_library_candidates,
 )
@@ -11,6 +12,7 @@ from .fashionstar import (
 __all__ = [
     "AngleSample",
     "FashionStarServo",
+    "ServoMonitor",
     "SmartServoBus",
     "LibraryLoadError",
     "ServoBusError",

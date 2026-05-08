@@ -3,7 +3,7 @@ use std::sync::{Mutex, MutexGuard};
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use smart_servo_core::{AngleSample, ServoId, SmartServoController, SmartServoError};
-use smart_servo_vendor_fashionstar::FashionStarController;
+use smart_servo_vendor_fashionstar::{FashionStarController, ServoMonitor};
 
 fn py_bus_err(err: SmartServoError) -> PyErr {
     PyRuntimeError::new_err(err.to_string())
@@ -18,7 +18,11 @@ fn check_servo_id(servo_id: u8) -> ServoId {
 }
 
 fn checked_interval(interval_ms: u32, multi_turn: bool) -> PyResult<u32> {
-    let max = if multi_turn { 4_096_000 } else { u16::MAX as u32 };
+    let max = if multi_turn {
+        4_096_000
+    } else {
+        u16::MAX as u32
+    };
     if interval_ms > max {
         return Err(PyValueError::new_err(format!(
             "interval_ms must be in range 0..{}",
@@ -33,6 +37,69 @@ fn finite_angle(angle_deg: f32) -> PyResult<f32> {
         return Err(PyValueError::new_err("angle_deg must be finite"));
     }
     Ok(angle_deg)
+}
+
+#[pyclass(
+    name = "ServoMonitor",
+    module = "motorbridge_smart_servo",
+    frozen,
+    skip_from_py_object
+)]
+#[derive(Debug, Clone, Copy)]
+pub struct PyServoMonitor {
+    #[pyo3(get)]
+    pub id: u8,
+    #[pyo3(get)]
+    pub voltage_mv: u16,
+    #[pyo3(get)]
+    pub current_ma: u16,
+    #[pyo3(get)]
+    pub power_mw: u16,
+    #[pyo3(get)]
+    pub temp_raw: u16,
+    #[pyo3(get)]
+    pub status: u8,
+    #[pyo3(get)]
+    pub angle_deg: f32,
+    #[pyo3(get)]
+    pub turn: i16,
+    #[pyo3(get)]
+    pub reliable: bool,
+}
+
+impl From<ServoMonitor> for PyServoMonitor {
+    fn from(m: ServoMonitor) -> Self {
+        Self {
+            id: m.id,
+            voltage_mv: m.voltage_mv,
+            current_ma: m.current_ma,
+            power_mw: m.power_mw,
+            temp_raw: m.temp_raw,
+            status: m.status,
+            angle_deg: m.angle_deg,
+            turn: m.turn,
+            reliable: m.reliable,
+        }
+    }
+}
+
+#[pymethods]
+impl PyServoMonitor {
+    fn __repr__(&self) -> String {
+        format!(
+            "ServoMonitor(id={}, angle_deg={:.3}, voltage_mv={}, \
+             current_ma={}, power_mw={}, temp_raw={}, status={:#04x}, turn={}, reliable={})",
+            self.id,
+            self.angle_deg,
+            self.voltage_mv,
+            self.current_ma,
+            self.power_mw,
+            self.temp_raw,
+            self.status,
+            self.turn,
+            self.reliable,
+        )
+    }
 }
 
 #[pyclass(
@@ -189,6 +256,26 @@ impl PyFashionStarServo {
         })
     }
 
+    #[pyo3(signature = (servo_id))]
+    fn reset_multi_turn(&self, py: Python<'_>, servo_id: u8) -> PyResult<()> {
+        let servo_id = check_servo_id(servo_id);
+        py.detach(|| self.with_controller(|c| c.reset_multi_turn(servo_id).map_err(py_bus_err)))
+    }
+
+    #[pyo3(signature = (servo_id))]
+    fn set_origin_point(&self, py: Python<'_>, servo_id: u8) -> PyResult<()> {
+        let servo_id = check_servo_id(servo_id);
+        py.detach(|| self.with_controller(|c| c.set_origin_point(servo_id).map_err(py_bus_err)))
+    }
+
+    #[pyo3(signature = (servo_id, mode, power))]
+    fn set_stop_mode(&self, py: Python<'_>, servo_id: u8, mode: u8, power: u16) -> PyResult<()> {
+        let servo_id = check_servo_id(servo_id);
+        py.detach(|| {
+            self.with_controller(|c| c.set_stop_mode(servo_id, mode, power).map_err(py_bus_err))
+        })
+    }
+
     #[pyo3(signature = (servo_id, angle_deg, multi_turn = false, interval_ms = 0))]
     fn move_to(
         &self,
@@ -200,11 +287,44 @@ impl PyFashionStarServo {
     ) -> PyResult<()> {
         self.set_angle(py, servo_id, angle_deg, multi_turn, interval_ms)
     }
+
+    /// Set how many consecutive missed responses trigger a `ServoBusError`.
+    /// A value of `0` disables the check (default threshold is 5).
+    #[pyo3(signature = (threshold))]
+    fn set_loss_threshold(&self, threshold: u32) -> PyResult<()> {
+        self.with_controller(|c| {
+            c.set_loss_threshold(threshold);
+            Ok(())
+        })
+    }
+
+    /// Send one sync-monitor command to all `servo_ids` at once.
+    ///
+    /// Returns a `dict[int, ServoMonitor | None]`:
+    /// - `ServoMonitor` for each servo that responded.
+    /// - `None` for each servo that did not respond this cycle.
+    ///
+    /// Raises `RuntimeError` if any servo's consecutive miss count hits the
+    /// configured threshold.
+    #[pyo3(signature = (servo_ids))]
+    fn sync_monitor(&self, py: Python<'_>, servo_ids: Vec<u8>) -> PyResult<Py<PyAny>> {
+        let result =
+            py.detach(|| self.with_controller(|c| c.sync_monitor(&servo_ids).map_err(py_bus_err)))?;
+        let dict = pyo3::types::PyDict::new(py);
+        for (id, opt) in result {
+            match opt {
+                Some(m) => dict.set_item(id, Py::new(py, PyServoMonitor::from(m))?)?,
+                None => dict.set_item(id, py.None())?,
+            }
+        }
+        Ok(dict.unbind().into())
+    }
 }
 
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyAngleSample>()?;
+    m.add_class::<PyServoMonitor>()?;
     m.add_class::<PyFashionStarServo>()?;
     Ok(())
 }

@@ -17,6 +17,8 @@ Current vendor target: **FashionStar UART smart servo**.
 ## Features
 
 - Angle reliability filter — suppresses power-cycle `A -> 0 -> B` glitches
+- Sync read (code 25) — query N servos in one request; ~6x faster than sequential for 7-servo setups
+- Consecutive loss detection — per-servo miss counter with configurable threshold
 - Vendor-neutral `SmartServoController` trait for multi-brand extension
 - PyO3 + maturin abi3 wheels — Rust core compiled into Python, no ctypes
 - Stable C ABI (`libsmart_servo_abi`) for native/C integration
@@ -41,6 +43,9 @@ Current vendor target: **FashionStar UART smart servo**.
 ## Quick Start — Rust CLI
 
 ```bash
+# Sync read all 7 servos in one request (~24 ms, vs ~154 ms sequential)
+cargo run -p smart_servo_cli -- sync-monitor --port /dev/ttyUSB0 --baudrate 1000000 --ids 0 1 2 3 4 5 6 --interval-ms 20
+
 # Scan bus
 cargo run -p smart_servo_cli -- scan --port /dev/ttyUSB0 --baudrate 1000000 --max-id 20
 
@@ -73,7 +78,7 @@ pip install -e .
 ### Python API
 
 ```python
-from motorbridge_smart_servo import SmartServoBus
+from motorbridge_smart_servo import SmartServoBus, ServoMonitor
 
 with SmartServoBus.open(vendor="fashionstar", port="/dev/ttyUSB0", baudrate=1_000_000) as bus:
     # Scan
@@ -86,6 +91,12 @@ with SmartServoBus.open(vendor="fashionstar", port="/dev/ttyUSB0", baudrate=1_00
     # Monitor continuously
     for s in bus.monitor(0, multi_turn=True, interval_s=0.02):
         print(f"raw={s.raw_deg:9.3f} filtered={s.filtered_deg:9.3f} reliable={s.reliable}")
+
+    # Sync read — query 7 servos in one request
+    result = bus.sync_monitor([0, 1, 2, 3, 4, 5, 6])
+    for sid, m in result.items():
+        if m and m.reliable:
+            print(f"id={sid} angle={m.angle_deg:.2f} volt={m.voltage_mv}mV")
 
     # Move servo
     bus.set_angle(0, -45.0, multi_turn=False, interval_ms=500)
@@ -101,22 +112,34 @@ motorbridge-smart-servo set-angle --port /dev/ttyUSB0 --baudrate 1000000 --id 0 
 
 ## Quick Start - WASM
 
-The WASM crate is a `wasm-bindgen` JavaScript/browser binding for FashionStar
-query/decode logic and the Rust angle reliability filter. The browser demo uses
-WebSerial for real UART I/O, then passes bytes through WASM for protocol decode
-and filtering.
+The WASM crate is a `wasm-bindgen` JavaScript/browser binding. It exposes
+FashionStar packet encoding/decoding and the angle reliability filter.
+
+### Multi-servo monitor dashboard
+
+Query up to 7 servos simultaneously via sync_monitor (code 25) and view
+real-time angle curves with per-servo reliable/unreliable colour coding:
+
+```bash
+bash examples/wasm/browser-monitor-demo/build.sh
+cd examples/wasm/browser-monitor-demo
+python3 -m http.server 8080
+```
+
+Open `http://localhost:8080` in Chrome or Edge, click `Connect WebSerial`.
+
+### Single-servo filter demo
+
+Visualise the `A -> 0 -> B` reliability filter for one servo (also works in
+simulation mode without hardware):
 
 ```bash
 bash examples/wasm/browser-filter-demo/build.sh
 cd examples/wasm/browser-filter-demo
-python -m http.server 8080
+python3 -m http.server 8080
 ```
 
-On Windows PowerShell, run `examples\wasm\browser-filter-demo\build.ps1`
-instead of the `bash ...` command.
-
-Open `http://localhost:8080` to see raw vs filtered angle visualization.
-Use Chrome or Edge and click `Connect WebSerial` to read a real servo bus.
+On Windows PowerShell, run `examples\wasm\browser-*\build.ps1` instead.
 
 ## Platform Support
 

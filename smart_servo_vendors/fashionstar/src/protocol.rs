@@ -4,13 +4,17 @@ pub const REQ_HEADER: [u8; 2] = [0x12, 0x4c];
 pub const RESP_HEADER: [u8; 2] = [0x05, 0x1c];
 
 pub const CODE_PING: u8 = 1;
+pub const CODE_QUERY_SERVO_MONITOR: u8 = 22;
 pub const CODE_SET_SERVO_ANGLE: u8 = 8;
 pub const CODE_QUERY_SERVO_ANGLE: u8 = 10;
 pub const CODE_SET_SERVO_ANGLE_BY_INTERVAL: u8 = 11;
 pub const CODE_SET_SERVO_ANGLE_MTURN: u8 = 13;
 pub const CODE_SET_SERVO_ANGLE_MTURN_BY_INTERVAL: u8 = 14;
 pub const CODE_QUERY_SERVO_ANGLE_MTURN: u8 = 16;
-pub const CODE_QUERY_SERVO_MONITOR: u8 = 22;
+pub const CODE_RESET_MTURN: u8 = 17;
+pub const CODE_SET_ORIGIN: u8 = 23;
+pub const CODE_SET_STOP_MODE: u8 = 24;
+pub const CODE_SYNC_COMMAND: u8 = 25;
 
 #[derive(Debug, Clone)]
 pub struct Packet {
@@ -28,6 +32,8 @@ pub struct ServoMonitor {
     pub status: u8,
     pub angle_deg: f32,
     pub turn: i16,
+    /// `true` = fresh reading from servo; `false` = held from last known value.
+    pub reliable: bool,
 }
 
 pub fn checksum(header: [u8; 2], code: u8, params: &[u8]) -> u8 {
@@ -234,6 +240,7 @@ pub fn decode_monitor(packet: &Packet) -> Result<ServoMonitor> {
         status,
         angle_deg: angle_raw as f32 / 10.0,
         turn,
+        reliable: true,
     })
 }
 
@@ -268,4 +275,41 @@ mod tests {
         assert!(report.packets.is_empty());
         assert_eq!(report.errors.len(), 1);
     }
+}
+
+/// Encode a sync-monitor request (code 25 + sub-command 22).
+/// One packet queries all `ids` simultaneously; each online servo replies
+/// with its own standard monitor response packet (code 22).
+pub fn encode_sync_monitor(ids: &[u8]) -> Result<Vec<u8>> {
+    if ids.is_empty() {
+        return Err(SmartServoError::Protocol(
+            "sync_monitor: ids list must not be empty".to_string(),
+        ));
+    }
+    // Outer params: [sub_cmd=22, sub_length=1, count, id0, id1, ...]
+    let mut params = Vec::with_capacity(3 + ids.len());
+    params.push(CODE_QUERY_SERVO_MONITOR); // 22
+    params.push(1u8); // per-servo payload length in sub-cmd
+    params.push(ids.len() as u8); // servo count
+    params.extend_from_slice(ids);
+    pack_request(CODE_SYNC_COMMAND, &params)
+}
+
+pub fn encode_reset_multi_turn(id: u8) -> Result<Vec<u8>> {
+    pack_request(CODE_RESET_MTURN, &[id])
+}
+
+pub fn encode_set_origin_point(id: u8) -> Result<Vec<u8>> {
+    // FashionStar protocol requires two bytes: [servo_id, 0].
+    // The original Python SDK uses struct.pack('<BB', servo_id, 0).
+    // Sending only [id] causes the firmware to reject the packet silently.
+    pack_request(CODE_SET_ORIGIN, &[id, 0])
+}
+
+pub fn encode_set_stop_mode(id: u8, mode: u8, power: u16) -> Result<Vec<u8>> {
+    let mut p = Vec::with_capacity(4);
+    p.push(id);
+    p.push(mode);
+    p.extend_from_slice(&power.to_le_bytes());
+    pack_request(CODE_SET_STOP_MODE, &p)
 }

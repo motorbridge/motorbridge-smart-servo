@@ -11,3 +11,4 @@ build/
 __pycache__/
 .pytest_cache/
 examples/wasm/browser-filter-demo/pkg/
+examples/wasm/browser-monitor-demo/pkg/

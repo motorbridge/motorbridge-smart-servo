@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use smart_servo_core::{
-    AngleReliability, AngleSample, Result, SerialBus, SerialBusConfig, ServoId,
+    AngleReliability, AngleSample, LossTracker, Result, SerialBus, SerialBusConfig, ServoId,
     SmartServoController, SmartServoError,
 };
 
@@ -12,6 +12,8 @@ pub use crate::protocol::ServoMonitor;
 pub struct FashionStarController {
     bus: SerialBus,
     filters: HashMap<ServoId, AngleReliability>,
+    loss_tracker: LossTracker,
+    last_monitors: HashMap<ServoId, ServoMonitor>,
 }
 
 impl FashionStarController {
@@ -19,14 +21,29 @@ impl FashionStarController {
         Ok(Self {
             bus: SerialBus::open(SerialBusConfig::new(port, baudrate))?,
             filters: HashMap::new(),
+            loss_tracker: LossTracker::default(),
+            last_monitors: HashMap::new(),
         })
+    }
+
+    pub fn set_loss_threshold(&mut self, threshold: u32) {
+        self.loss_tracker = LossTracker::new(threshold);
     }
 
     pub fn read_raw_angle(&mut self, id: ServoId, multi_turn: bool) -> Result<f32> {
         self.bus.clear()?;
         self.bus
             .write_all(&protocol::encode_query_angle(id, multi_turn)?)?;
-        let data = self.bus.read_until_idle()?;
+        let data = match self.bus.read_until(true, |buf| {
+            !protocol::parse_response_stream(buf).packets.is_empty()
+        }) {
+            Ok(d) => d,
+            Err(SmartServoError::Timeout) => {
+                self.loss_tracker.record_miss(id)?;
+                return Err(SmartServoError::Timeout);
+            }
+            Err(e) => return Err(e),
+        };
         let report = protocol::parse_response_stream(&data);
         if report.packets.is_empty() {
             if let Some(err) = report.errors.into_iter().next() {
@@ -36,17 +53,28 @@ impl FashionStarController {
         for packet in report.packets {
             if let Ok((reply_id, angle)) = protocol::decode_angle(&packet, multi_turn) {
                 if reply_id == id {
+                    self.loss_tracker.record_ok(id);
                     return Ok(angle);
                 }
             }
         }
+        self.loss_tracker.record_miss(id)?;
         Err(SmartServoError::Timeout)
     }
 
     pub fn query_monitor(&mut self, id: ServoId) -> Result<ServoMonitor> {
         self.bus.clear()?;
         self.bus.write_all(&protocol::encode_query_monitor(id)?)?;
-        let data = self.bus.read_until_idle()?;
+        let data = match self.bus.read_until(true, |buf| {
+            !protocol::parse_response_stream(buf).packets.is_empty()
+        }) {
+            Ok(d) => d,
+            Err(SmartServoError::Timeout) => {
+                self.loss_tracker.record_miss(id)?;
+                return Err(SmartServoError::Timeout);
+            }
+            Err(e) => return Err(e),
+        };
         let report = protocol::parse_response_stream(&data);
         if report.packets.is_empty() {
             if let Some(err) = report.errors.into_iter().next() {
@@ -54,13 +82,90 @@ impl FashionStarController {
             }
         }
         for packet in report.packets {
-            if let Ok(sample) = protocol::decode_monitor(&packet) {
+            if let Ok(mut sample) = protocol::decode_monitor(&packet) {
                 if sample.id == id {
+                    let filter = self.filters.entry(id).or_default();
+                    let (filtered, angle_ok) = filter.filter(sample.angle_deg);
+                    sample.angle_deg = filtered;
+                    sample.reliable = angle_ok;
+                    self.loss_tracker.record_ok(id);
+                    self.last_monitors.insert(id, sample.clone());
                     return Ok(sample);
                 }
             }
         }
+        self.loss_tracker.record_miss(id)?;
         Err(SmartServoError::Timeout)
+    }
+
+    /// Send one sync-monitor command (code 25) to query all `ids` at once.
+    ///
+    /// Uses `idle_gap = false` so that silence between individual servo
+    /// responses does not trigger early exit — we wait for all N packets or
+    /// the overall timeout.
+    pub fn sync_monitor(
+        &mut self,
+        ids: &[ServoId],
+    ) -> Result<HashMap<ServoId, Option<ServoMonitor>>> {
+        self.bus.clear()?;
+        self.bus.write_all(&protocol::encode_sync_monitor(ids)?)?;
+        let expected = ids.len();
+        let data = match self.bus.read_until(false, |buf| {
+            protocol::parse_response_stream(buf).packets.len() >= expected
+        }) {
+            Ok(d) => d,
+            Err(SmartServoError::Timeout) => {
+                for &id in ids {
+                    self.loss_tracker.record_miss(id)?;
+                }
+                // all use last known value, marked unreliable
+                let result = ids
+                    .iter()
+                    .map(|&id| {
+                        let held = self.last_monitors.get(&id).map(|m| {
+                            let mut stale = m.clone();
+                            stale.reliable = false;
+                            stale
+                        });
+                        (id, held)
+                    })
+                    .collect();
+                return Ok(result);
+            }
+            Err(e) => return Err(e),
+        };
+
+        let report = protocol::parse_response_stream(&data);
+
+        let mut got: HashMap<ServoId, ServoMonitor> = HashMap::new();
+        for packet in report.packets {
+            if let Ok(mut m) = protocol::decode_monitor(&packet) {
+                let filter = self.filters.entry(m.id).or_default();
+                let (filtered, angle_ok) = filter.filter(m.angle_deg);
+                m.angle_deg = filtered;
+                m.reliable = angle_ok;
+                self.loss_tracker.record_ok(m.id);
+                self.last_monitors.insert(m.id, m);
+                got.insert(m.id, m);
+            }
+        }
+
+        let mut result: HashMap<ServoId, Option<ServoMonitor>> = HashMap::new();
+        for &id in ids {
+            if let Some(m) = got.remove(&id) {
+                result.insert(id, Some(m));
+            } else {
+                self.loss_tracker.record_miss(id)?;
+                let held = self.last_monitors.get(&id).map(|m| {
+                    let mut stale = m.clone();
+                    stale.reliable = false;
+                    stale
+                });
+                result.insert(id, held);
+            }
+        }
+
+        Ok(result)
     }
 
     pub fn read_angle_pair(&mut self, id: ServoId, multi_turn: bool) -> Result<AngleSample> {
@@ -72,6 +177,24 @@ impl FashionStarController {
             filtered_deg: filtered,
             reliable,
         })
+    }
+
+    pub fn reset_multi_turn(&mut self, id: ServoId) -> Result<()> {
+        self.bus
+            .write_all(&protocol::encode_reset_multi_turn(id)?)?;
+        Ok(())
+    }
+
+    pub fn set_origin_point(&mut self, id: ServoId) -> Result<()> {
+        self.bus
+            .write_all(&protocol::encode_set_origin_point(id)?)?;
+        Ok(())
+    }
+
+    pub fn set_stop_mode(&mut self, id: ServoId, mode: u8, power: u16) -> Result<()> {
+        self.bus
+            .write_all(&protocol::encode_set_stop_mode(id, mode, power)?)?;
+        Ok(())
     }
 
     pub fn set_timeout(&mut self, timeout: Duration) {
@@ -92,7 +215,9 @@ impl SmartServoController for FashionStarController {
     fn ping(&mut self, id: ServoId) -> Result<bool> {
         self.bus.clear()?;
         self.bus.write_all(&protocol::encode_ping(id)?)?;
-        let data = match self.bus.read_until_idle() {
+        let data = match self.bus.read_until(true, |buf| {
+            !protocol::parse_response_stream(buf).packets.is_empty()
+        }) {
             Ok(data) => data,
             Err(SmartServoError::Timeout) => return Ok(false),
             Err(err) => return Err(err),

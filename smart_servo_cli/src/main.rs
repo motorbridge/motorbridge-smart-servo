@@ -106,6 +106,22 @@ enum Command {
         #[arg(long)]
         id: u8,
     },
+    /// Query multiple servos in one sync command (code 25).
+    /// Example: --ids 0 1 2 3 4 5 6
+    SyncMonitor {
+        #[arg(long, default_value = "fashionstar")]
+        vendor: String,
+        #[arg(long)]
+        port: String,
+        #[arg(long, default_value_t = 1_000_000)]
+        baudrate: u32,
+        /// Servo IDs to query, e.g. --ids 0 1 2 3 4 5 6
+        #[arg(long, num_args = 1..)]
+        ids: Vec<u8>,
+        /// Repeat continuously at this interval
+        #[arg(long)]
+        interval_ms: Option<u64>,
+    },
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -247,6 +263,56 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!(
                 "mode_hint: protocol has no direct 'current mode' query; this is status-based inference only."
             );
+        }
+        Command::SyncMonitor {
+            vendor,
+            port,
+            baudrate,
+            ids,
+            interval_ms,
+        } => {
+            let mut ctl = open_fashionstar_or_error(&vendor, port, baudrate)?;
+            let running = Arc::new(AtomicBool::new(true));
+            let signal = running.clone();
+            ctrlc::set_handler(move || signal.store(false, Ordering::SeqCst))?;
+
+            loop {
+                let t0 = std::time::Instant::now();
+                match ctl.sync_monitor(&ids) {
+                    Ok(result) => {
+                        let elapsed = t0.elapsed().as_micros();
+                        let mut sorted: Vec<u8> = ids.clone();
+                        sorted.sort();
+                        for id in &sorted {
+                            match result.get(id) {
+                                Some(Some(m)) => println!(
+                                    "id={id} angle={:8.3} volt={:.2}V reliable={}  +{elapsed}µs",
+                                    m.angle_deg,
+                                    m.voltage_mv as f32 / 1000.0,
+                                    m.reliable,
+                                ),
+                                Some(None) => println!("id={id} no response  +{elapsed}µs"),
+                                None => {}
+                            }
+                        }
+                        println!("--- {elapsed}µs for {} servo(s)", ids.len());
+                    }
+                    Err(SmartServoError::ConsecutiveLoss { id, count }) => {
+                        eprintln!("fatal: servo {id} lost {count} consecutive responses, stopping");
+                        break;
+                    }
+                    Err(e) => eprintln!("error: {e}"),
+                }
+
+                if !running.load(Ordering::SeqCst) {
+                    break;
+                }
+                if let Some(ms) = interval_ms {
+                    thread::sleep(Duration::from_millis(ms));
+                } else {
+                    break;
+                }
+            }
         }
     }
 

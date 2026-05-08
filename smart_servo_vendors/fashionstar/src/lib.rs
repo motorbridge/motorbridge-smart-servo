@@ -1,4 +1,4 @@
 pub mod controller;
 pub mod protocol;
 
-pub use controller::FashionStarController;
+pub use controller::{FashionStarController, ServoMonitor};

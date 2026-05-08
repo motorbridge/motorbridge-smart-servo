@@ -4,7 +4,8 @@ import time
 from pathlib import Path
 from typing import Iterator, Optional
 
-from ._native import AngleSample, FashionStarServo as _NativeFashionStarServo
+from ._native import AngleSample, ServoMonitor
+from ._native import FashionStarServo as _NativeFashionStarServo
 
 
 class SmartServoError(RuntimeError):
@@ -31,7 +32,9 @@ class FashionStarServo:
     of loading a separate smart_servo_abi DLL/SO with ctypes.
     """
 
-    def __init__(self, port: str, baudrate: int = 1_000_000, library_path: Optional[str] = None):
+    def __init__(
+        self, port: str, baudrate: int = 1_000_000, library_path: Optional[str] = None
+    ):
         if library_path is not None:
             # Keep the old constructor shape compatible, but the new PyO3 backend
             # no longer needs or honors an external native-library path.
@@ -114,15 +117,73 @@ class FashionStarServo:
                     emitted += 1
             time.sleep(interval_s)
 
-    def set_angle(self, servo_id: int, angle_deg: float, multi_turn: bool = False, interval_ms: int = 0) -> None:
+    def set_angle(
+        self,
+        servo_id: int,
+        angle_deg: float,
+        multi_turn: bool = False,
+        interval_ms: int = 0,
+    ) -> None:
         if interval_ms < 0:
             raise ValueError("interval_ms must be >= 0")
         try:
-            self._inner.set_angle(self._check_id(servo_id), float(angle_deg), bool(multi_turn), int(interval_ms))
+            self._inner.set_angle(
+                self._check_id(servo_id),
+                float(angle_deg),
+                bool(multi_turn),
+                int(interval_ms),
+            )
         except ValueError:
             raise
         except RuntimeError as exc:
             raise _wrap_native_error(exc) from exc
+
+    def reset_multi_turn(self, servo_id: int) -> None:
+        try:
+            self._inner.reset_multi_turn(self._check_id(servo_id))
+        except RuntimeError as exc:
+            raise _wrap_native_error(exc) from exc
+
+    def set_origin_point(self, servo_id: int) -> None:
+        try:
+            self._inner.set_origin_point(self._check_id(servo_id))
+        except RuntimeError as exc:
+            raise _wrap_native_error(exc) from exc
+
+    def set_stop_mode(self, servo_id: int, mode: int, power: int) -> None:
+        try:
+            self._inner.set_stop_mode(self._check_id(servo_id), int(mode), int(power))
+        except RuntimeError as exc:
+            raise _wrap_native_error(exc) from exc
+
+    def set_loss_threshold(self, threshold: int) -> None:
+        """Set how many consecutive missed responses trigger a ServoBusError.
+        A value of 0 disables the check (default is 20).
+        """
+        try:
+            self._inner.set_loss_threshold(int(threshold))
+        except RuntimeError as exc:
+            raise _wrap_native_error(exc) from exc
+
+    def sync_monitor(self, servo_ids: list[int]) -> dict[int, ServoMonitor | None]:
+        """Query monitor data for multiple servos in one sync command (code 25).
+
+        Returns a dict mapping servo_id -> ServoMonitor for every queried servo:
+        - reliable=True: fresh reading from the servo this cycle.
+        - reliable=False: servo did not respond; angle and telemetry are held
+          from the last known good reading.
+        - None: servo has never responded (no cached value available yet).
+
+        Raises ServoBusError if any servo exceeds the consecutive loss threshold.
+        """
+        try:
+            return self._inner.sync_monitor([self._check_id(i) for i in servo_ids])
+        except RuntimeError as exc:
+            raise _wrap_native_error(exc) from exc
+
+    def unlock(self, servo_id: int) -> None:
+        """Unlock the servo (set to stop mode unloaded)."""
+        self.set_stop_mode(servo_id, mode=0x10, power=0)
 
     move_to = set_angle
 

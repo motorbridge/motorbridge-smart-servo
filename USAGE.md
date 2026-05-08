@@ -170,6 +170,27 @@ Ubuntu/bash:
 cargo run -p smart_servo_cli -- set-angle --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --angle -45 --interval-ms 500
 ```
 
+Sync read multiple servos in one request:
+
+Windows PowerShell:
+
+```powershell
+cargo run -p smart_servo_cli -- sync-monitor --port COM5 --baudrate 1000000 --ids 0 1 2 3 4 5 6
+cargo run -p smart_servo_cli -- sync-monitor --port COM5 --baudrate 1000000 --ids 0 1 2 3 4 5 6 --interval-ms 20
+```
+
+Ubuntu/bash:
+
+```bash
+cargo run -p smart_servo_cli -- sync-monitor --port /dev/ttyUSB0 --baudrate 1000000 --ids 0 1 2 3 4 5 6
+cargo run -p smart_servo_cli -- sync-monitor --port /dev/ttyUSB0 --baudrate 1000000 --ids 0 1 2 3 4 5 6 --interval-ms 20
+```
+
+Each row shows `angle`, `voltage`, and `reliable` for every queried servo.
+A servo that does not respond returns its last known angle with `reliable=false`.
+If a servo exceeds the consecutive loss threshold (default 20), the command stops
+with `fatal: servo N lost N consecutive responses`.
+
 Output meaning:
 
 ```text
@@ -320,6 +341,53 @@ bus.read_angle(0, multi_turn=True)
 bus.read_raw_angle(0, multi_turn=True)
 bus.read_filtered_angle(0, multi_turn=True)
 bus.set_angle(0, -45.0, multi_turn=False, interval_ms=500)
+bus.set_stop_mode(0, mode=0x10, power=0)   # stop and release torque
+bus.set_loss_threshold(20)                 # consecutive miss threshold (0 = disabled)
+```
+
+Sync read — query N servos in one request:
+
+```python
+from motorbridge_smart_servo import SmartServoBus, ServoMonitor, ServoBusError
+
+with SmartServoBus.open(vendor="fashionstar", port="COM5", baudrate=1_000_000) as bus:
+    try:
+        result: dict[int, ServoMonitor | None] = bus.sync_monitor([0, 1, 2, 3, 4, 5, 6])
+    except ServoBusError as exc:
+        # raised when a servo exceeds the consecutive loss threshold
+        print(f"fatal: {exc}")
+    else:
+        for sid, m in result.items():
+            if m is None:
+                print(f"id={sid}: no data (never responded)")
+            elif not m.reliable:
+                print(f"id={sid}: held angle={m.angle_deg:.2f} (unreliable)")
+            else:
+                print(f"id={sid}: angle={m.angle_deg:.2f} volt={m.voltage_mv}mV")
+```
+
+`ServoMonitor` fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `int` | Servo ID |
+| `angle_deg` | `float` | Filtered angle (degrees) |
+| `voltage_mv` | `int` | Voltage (mV) |
+| `current_ma` | `int` | Current (mA) |
+| `power_mw` | `int` | Power (mW) |
+| `temp_raw` | `int` | Temperature ADC value |
+| `status` | `int` | Status flags (bit0=busy, bit2=stall, bit3=high-V, bit4=low-V, …) |
+| `turn` | `int` | Turn count |
+| `reliable` | `bool` | `True` = fresh reading and angle passed filter; `False` = held or glitch |
+
+Consecutive loss threshold:
+
+```python
+# Raise ServoBusError after 20 consecutive missed responses (default)
+bus.set_loss_threshold(20)
+
+# Disable the check
+bus.set_loss_threshold(0)
 ```
 
 Monitor generator:
@@ -355,6 +423,7 @@ python examples\python\read_angle.py
 python examples\python\monitor.py
 python examples\python\ping.py
 python examples\python\set_angle.py
+python examples\python\sync_monitor.py
 ```
 
 Ubuntu/bash:
@@ -365,6 +434,7 @@ python examples/python/read_angle.py
 python examples/python/monitor.py
 python examples/python/ping.py
 python examples/python/set_angle.py
+python examples/python/sync_monitor.py
 ```
 
 WASM/browser examples live in `examples/wasm`.
@@ -372,53 +442,60 @@ WASM/browser examples live in `examples/wasm`.
 ## WASM Browser Binding
 
 `smart_servo_wasm` is a `wasm-bindgen` binding for JavaScript and browsers. It
-exposes FashionStar query/decode helpers and the angle reliability filter:
+exposes FashionStar packet encoding/decoding and the angle reliability filter
+(including out-of-range protection).
 
-```js
-const packet = fashionstar_query_angle_packet(0, true);
-await writer.write(packet);
+### Multi-servo monitor dashboard
 
-const decoded = fashionstar_decode_angle(rxBytes, 0, true);
-const filter = new WasmAngleReliability();
-const sample = filter.filter(decoded.raw_deg);
-console.log(sample.raw_deg, sample.filtered_deg, sample.reliable);
+Build and run:
+
+Ubuntu/bash:
+
+```bash
+bash examples/wasm/browser-monitor-demo/build.sh
+cd examples/wasm/browser-monitor-demo
+python3 -m http.server 8080
 ```
-
-Build the browser package:
 
 Windows PowerShell:
 
 ```powershell
-examples\wasm\browser-filter-demo\build.ps1
+examples\wasm\browser-monitor-demo\build.ps1
+cd examples\wasm\browser-monitor-demo
+python -m http.server 8080
 ```
+
+Open `http://localhost:8080` in Chrome or Edge, click `Connect WebSerial`.
+
+Enter the servo IDs you want to monitor (space-separated, default `0 1 2 3 4 5 6`).
+Each servo gets its own colour curve. Solid lines are `reliable`, dashed grey
+lines indicate held values (servo offline or angle filter rejected). The right
+sidebar shows live angle, voltage and reliability per servo.
+
+### Single-servo filter demo
+
+Visualises the `A -> 0 -> B` reliability filter for one servo.
+Also works in simulation mode without hardware.
 
 Ubuntu/bash:
 
 ```bash
 bash examples/wasm/browser-filter-demo/build.sh
+cd examples/wasm/browser-filter-demo
+python3 -m http.server 8080
 ```
-
-Run the browser demo:
 
 Windows PowerShell:
 
 ```powershell
+examples\wasm\browser-filter-demo\build.ps1
 cd examples\wasm\browser-filter-demo
 python -m http.server 8080
-```
-
-Ubuntu/bash:
-
-```bash
-cd examples/wasm/browser-filter-demo
-python3 -m http.server 8080
 ```
 
 Open `http://localhost:8080` in Chrome or Edge, then click `Connect WebSerial`.
 
 JavaScript owns WebSerial I/O; WASM owns packet encode/decode and filtering.
-The demo defaults `Zero hold seconds` to `3.0`, which is about `150` samples at
-the current `20 ms` polling interval.
 
 ## Platform Support
 

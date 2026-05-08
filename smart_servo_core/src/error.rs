@@ -16,4 +16,6 @@ pub enum SmartServoError {
     Protocol(String),
     #[error("unsupported: {0}")]
     Unsupported(String),
+    #[error("servo {id} lost {count} consecutive responses")]
+    ConsecutiveLoss { id: u8, count: u32 },
 }
