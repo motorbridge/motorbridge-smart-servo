@@ -89,7 +89,7 @@ impl FashionStarController {
                     sample.angle_deg = filtered;
                     sample.reliable = angle_ok;
                     self.loss_tracker.record_ok(id);
-                    self.last_monitors.insert(id, sample.clone());
+                    self.last_monitors.insert(id, sample);
                     return Ok(sample);
                 }
             }
@@ -123,7 +123,7 @@ impl FashionStarController {
                     .iter()
                     .map(|&id| {
                         let held = self.last_monitors.get(&id).map(|m| {
-                            let mut stale = m.clone();
+                            let mut stale = *m;
                             stale.reliable = false;
                             stale
                         });
@@ -157,7 +157,7 @@ impl FashionStarController {
             } else {
                 self.loss_tracker.record_miss(id)?;
                 let held = self.last_monitors.get(&id).map(|m| {
-                    let mut stale = m.clone();
+                    let mut stale = *m;
                     stale.reliable = false;
                     stale
                 });

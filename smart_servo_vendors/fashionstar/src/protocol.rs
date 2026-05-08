@@ -244,39 +244,6 @@ pub fn decode_monitor(packet: &Packet) -> Result<ServoMonitor> {
     })
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn request_checksum_matches_python_sdk_shape() {
-        let pkt = encode_ping(1).unwrap();
-        assert_eq!(&pkt[..4], &[0x12, 0x4c, CODE_PING, 1]);
-        assert_eq!(pkt[4], 1);
-        assert_eq!(pkt[5], checksum(REQ_HEADER, CODE_PING, &[1]));
-    }
-
-    #[test]
-    fn rejects_non_finite_angle() {
-        assert!(encode_set_angle(0, f32::NAN, false, None).is_err());
-        assert!(encode_set_angle(0, f32::INFINITY, true, Some(100)).is_err());
-    }
-
-    #[test]
-    fn rejects_single_turn_interval_truncation() {
-        assert!(encode_set_angle(0, 10.0, false, Some(100_000)).is_err());
-    }
-
-    #[test]
-    fn reports_checksum_mismatch() {
-        let mut bad = vec![0x05, 0x1c, CODE_PING, 1, 1, 0];
-        bad[5] = 0xaa;
-        let report = parse_response_stream(&bad);
-        assert!(report.packets.is_empty());
-        assert_eq!(report.errors.len(), 1);
-    }
-}
-
 /// Encode a sync-monitor request (code 25 + sub-command 22).
 /// One packet queries all `ids` simultaneously; each online servo replies
 /// with its own standard monitor response packet (code 22).
@@ -312,4 +279,37 @@ pub fn encode_set_stop_mode(id: u8, mode: u8, power: u16) -> Result<Vec<u8>> {
     p.push(mode);
     p.extend_from_slice(&power.to_le_bytes());
     pack_request(CODE_SET_STOP_MODE, &p)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn request_checksum_matches_python_sdk_shape() {
+        let pkt = encode_ping(1).unwrap();
+        assert_eq!(&pkt[..4], &[0x12, 0x4c, CODE_PING, 1]);
+        assert_eq!(pkt[4], 1);
+        assert_eq!(pkt[5], checksum(REQ_HEADER, CODE_PING, &[1]));
+    }
+
+    #[test]
+    fn rejects_non_finite_angle() {
+        assert!(encode_set_angle(0, f32::NAN, false, None).is_err());
+        assert!(encode_set_angle(0, f32::INFINITY, true, Some(100)).is_err());
+    }
+
+    #[test]
+    fn rejects_single_turn_interval_truncation() {
+        assert!(encode_set_angle(0, 10.0, false, Some(100_000)).is_err());
+    }
+
+    #[test]
+    fn reports_checksum_mismatch() {
+        let mut bad = vec![0x05, 0x1c, CODE_PING, 1, 1, 0];
+        bad[5] = 0xaa;
+        let report = parse_response_stream(&bad);
+        assert!(report.packets.is_empty());
+        assert_eq!(report.errors.len(), 1);
+    }
 }
