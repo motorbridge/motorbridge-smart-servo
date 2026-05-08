@@ -407,7 +407,7 @@ dependencies = [
 
 [[package]]
 name = "smart_servo_abi"
-version = "0.0.2"
+version = "0.0.4"
 dependencies = [
  "smart_servo_core",
  "smart_servo_vendor_fashionstar",
@@ -415,7 +415,7 @@ dependencies = [
 
 [[package]]
 name = "smart_servo_cli"
-version = "0.0.2"
+version = "0.0.4"
 dependencies = [
  "clap",
  "ctrlc",
@@ -425,7 +425,7 @@ dependencies = [
 
 [[package]]
 name = "smart_servo_core"
-version = "0.0.2"
+version = "0.0.4"
 dependencies = [
  "serde",
  "serialport",
@@ -434,7 +434,7 @@ dependencies = [
 
 [[package]]
 name = "smart_servo_py"
-version = "0.0.2"
+version = "0.0.4"
 dependencies = [
  "pyo3",
  "smart_servo_core",
@@ -443,14 +443,14 @@ dependencies = [
 
 [[package]]
 name = "smart_servo_vendor_fashionstar"
-version = "0.0.2"
+version = "0.0.4"
 dependencies = [
  "smart_servo_core",
 ]
 
 [[package]]
 name = "smart_servo_wasm"
-version = "0.0.2"
+version = "0.0.4"
 dependencies = [
  "smart_servo_core",
  "smart_servo_vendor_fashionstar",

@@ -1,6 +1,6 @@
 # Usage
 
-Version: `v0.0.3`
+Version: `v0.0.4`
 
 ## Build
 
@@ -79,7 +79,7 @@ motorbridge-smart-servo monitor --vendor fashionstar --port /dev/ttyUSB0 --baudr
 Install a GitHub Release wheel on Ubuntu:
 
 ```bash
-python -m pip install ./motorbridge_smart_servo-0.0.2-cp39-abi3-manylinux2014_x86_64.whl
+python -m pip install ./motorbridge_smart_servo-0.0.4-cp39-abi3-manylinux2014_x86_64.whl
 ```
 
 ## Native CLI
@@ -522,8 +522,8 @@ Tag pushes automatically create/update a GitHub Release and upload artifacts:
 Create a release tag:
 
 ```powershell
-git tag v0.0.3
-git push origin v0.0.3
+git tag v0.0.4
+git push origin v0.0.4
 ```
 
 The workflows are:
@@ -531,4 +531,4 @@ The workflows are:
 - `.github/workflows/build-native.yml`
 - `.github/workflows/build-wheels.yml`
 
-Both workflows upload assets to the same `v0.0.3` GitHub Release.
+Both workflows upload assets to the same `v0.0.4` GitHub Release.
