@@ -1,3 +1,4 @@
+use js_sys::Date;
 use smart_servo_core::{AngleReliability, AngleReliabilityConfig};
 use smart_servo_vendor_fashionstar::protocol;
 use wasm_bindgen::prelude::*;
@@ -16,12 +17,12 @@ impl WasmAngleReliability {
         }
     }
 
-    pub fn with_config(zero_eps_deg: f32, zero_confirm_samples: u16) -> Self {
+    pub fn with_config(zero_eps_deg: f32, zero_confirm_duration_s: f32) -> Self {
         Self {
             inner: AngleReliability {
                 config: AngleReliabilityConfig {
                     zero_eps_deg,
-                    zero_confirm_samples: zero_confirm_samples.max(1),
+                    zero_confirm_duration_s: zero_confirm_duration_s.max(0.0),
                     valid_range_deg: 3_686_400.0,
                 },
                 state: Default::default(),
@@ -29,12 +30,12 @@ impl WasmAngleReliability {
         }
     }
 
-    pub fn set_zero_confirm_samples(&mut self, samples: u16) {
-        self.inner.config.zero_confirm_samples = samples.max(1);
+    pub fn set_zero_confirm_duration_s(&mut self, seconds: f32) {
+        self.inner.config.zero_confirm_duration_s = seconds.max(0.0);
     }
 
     pub fn filter(&mut self, raw_deg: f32) -> WasmAngleSample {
-        let (filtered_deg, reliable) = self.inner.filter(raw_deg);
+        let (filtered_deg, reliable) = self.inner.filter_at(raw_deg, Date::now() / 1000.0);
         WasmAngleSample {
             raw_deg,
             filtered_deg,
@@ -102,7 +103,7 @@ pub fn fashionstar_decode_monitor_angle(data: &[u8], id: u8) -> WasmMonitorDecod
             if m.id == id {
                 return WasmMonitorDecodeResult {
                     found: true,
-                    raw_deg: m.angle_deg,
+                    raw_deg: m.raw_deg,
                     voltage_mv: m.voltage_mv,
                 };
             }

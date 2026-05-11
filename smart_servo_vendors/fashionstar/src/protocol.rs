@@ -30,6 +30,11 @@ pub struct ServoMonitor {
     pub power_mw: u16,
     pub temp_raw: u16,
     pub status: u8,
+    /// Raw protocol angle before reliability filtering.
+    pub raw_deg: f32,
+    /// Reliability-filtered angle for application logic.
+    pub filtered_deg: f32,
+    /// Backward-compatible alias for `filtered_deg`.
     pub angle_deg: f32,
     pub turn: i16,
     /// `true` = fresh reading from servo; `false` = held from last known value.
@@ -225,7 +230,7 @@ pub fn decode_monitor(packet: &Packet) -> Result<ServoMonitor> {
     let power_mw = u16::from_le_bytes([p[5], p[6]]);
     let temp_raw = u16::from_le_bytes([p[7], p[8]]);
     let status = p[9];
-    let angle_raw = i32::from_le_bytes([p[10], p[11], p[12], p[13]]);
+    let raw_deg = i32::from_le_bytes([p[10], p[11], p[12], p[13]]) as f32 / 10.0;
     let turn = if p.len() >= 16 {
         i16::from_le_bytes([p[14], p[15]])
     } else {
@@ -238,7 +243,9 @@ pub fn decode_monitor(packet: &Packet) -> Result<ServoMonitor> {
         power_mw,
         temp_raw,
         status,
-        angle_deg: angle_raw as f32 / 10.0,
+        raw_deg,
+        filtered_deg: raw_deg,
+        angle_deg: raw_deg,
         turn,
         reliable: true,
     })

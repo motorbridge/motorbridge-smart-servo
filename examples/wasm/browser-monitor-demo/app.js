@@ -32,7 +32,7 @@ let filters = {}; // id → WasmAngleReliability
 let history = {}; // id → [{ts, angle, reliable, voltage}]
 let cards = {}; // id → DOM element
 
-const POLL_MS = 20; // target ~50 Hz
+const POLL_MS = 10; // target ~100 Hz
 const RESPONSE_WAIT = 100; // max wait for all responses (ms)
 const HISTORY_MS = () => Number(historyEl.value) * 1000;
 

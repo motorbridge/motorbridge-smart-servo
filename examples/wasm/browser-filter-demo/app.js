@@ -2,7 +2,7 @@ import init, {
   WasmAngleReliability,
   fashionstar_decode_angle,
   fashionstar_query_angle_packet,
-} from "./pkg/smart_servo_wasm.js";
+} from "./pkg/smart_servo_wasm.js?v=20260511";
 
 const canvas = document.querySelector("#chart");
 const ctx = canvas.getContext("2d");
@@ -20,10 +20,8 @@ const baudrateEl = document.querySelector("#baudrate");
 const multiTurnEl = document.querySelector("#multi-turn");
 const zeroHoldEl = document.querySelector("#zero-hold-s");
 
-const yMin = -180;
-const yMax = 180;
 const maxPoints = 180;
-const pollIntervalMs = 20;
+const pollIntervalMs = 10;
 const responseTimeoutMs = 120;
 let filter;
 let points = [];
@@ -59,12 +57,12 @@ function setCounters() {
   rxCountEl.textContent = String(rxCount);
 }
 
-function zeroConfirmSamples() {
-  const seconds = Number(zeroHoldEl.value);
-  return Math.max(1, Math.round((seconds * 1000) / pollIntervalMs));
+function zeroConfirmDurationS() {
+  return Math.max(0, Number(zeroHoldEl.value));
 }
 
 function yFor(value) {
+  const { yMin, yMax } = chartRange();
   const t = (value - yMin) / (yMax - yMin);
   return canvas.height - t * canvas.height;
 }
@@ -75,13 +73,15 @@ function xFor(index) {
 }
 
 function drawGrid() {
+  const { yMin, yMax, step } = chartRange();
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = "#101620";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   ctx.strokeStyle = "rgba(255,255,255,0.10)";
   ctx.lineWidth = 1;
-  for (let deg = -180; deg <= 180; deg += 45) {
+  const first = Math.ceil(yMin / step) * step;
+  for (let deg = first; deg <= yMax; deg += step) {
     const y = yFor(deg);
     ctx.beginPath();
     ctx.moveTo(0, y);
@@ -90,6 +90,19 @@ function drawGrid() {
     ctx.fillStyle = "rgba(255,255,255,0.55)";
     ctx.fillText(`${deg} deg`, 10, y - 4);
   }
+}
+
+function chartRange() {
+  if (!points.length) return { yMin: -180, yMax: 180, step: 45 };
+  const values = points.flatMap((point) => [point.raw, point.filtered]);
+  const minValue = Math.min(...values, -180);
+  const maxValue = Math.max(...values, 180);
+  const span = Math.max(360, maxValue - minValue);
+  const margin = Math.max(20, span * 0.12);
+  const yMin = Math.floor((minValue - margin) / 45) * 45;
+  const yMax = Math.ceil((maxValue + margin) / 45) * 45;
+  const step = span > 1200 ? 360 : span > 540 ? 180 : 45;
+  return { yMin, yMax, step };
 }
 
 function drawLine(key, color, width) {
@@ -172,26 +185,33 @@ async function serialReadLoop() {
 
 async function serialPollLoop() {
   while (live && port?.writable) {
-    const servoId = Number(servoIdEl.value);
-    const multiTurn = multiTurnEl.checked;
-    const packet = fashionstar_query_angle_packet(servoId, multiTurn);
-    rxBuffer = new Uint8Array(0);
-    await writer.write(packet);
-    txCount += packet.length;
-    setCounters();
-    logDebug(`TX query id=${servoId} multi=${multiTurn}: ${bytesToHex(packet)}`);
+    try {
+      const servoId = Number(servoIdEl.value);
+      const multiTurn = multiTurnEl.checked;
+      const packet = fashionstar_query_angle_packet(servoId, multiTurn);
+      rxBuffer = new Uint8Array(0);
+      await writer.write(packet);
+      txCount += packet.length;
+      setCounters();
+      logDebug(`TX query id=${servoId} multi=${multiTurn}: ${bytesToHex(packet)}`);
 
-    const decoded = await waitForResponse(servoId, multiTurn, performance.now());
-    if (decoded?.found) {
-      pushRaw(decoded.raw_deg);
-      setStatus(`live WebSerial, last RX ${Math.round(performance.now() - lastRxAt)}ms ago`);
-      logDebug(`DECODE raw=${decoded.raw_deg.toFixed(3)} deg`);
-    } else if (decoded?.error) {
-      setStatus(decoded.error);
-      logDebug(`DECODE error: ${decoded.error}`);
-    } else {
-      setStatus(`timeout waiting for id=${servoId}; check id, baudrate, power, TX/RX wiring`);
-      logDebug("TIMEOUT no valid FashionStar angle response");
+      const decoded = await waitForResponse(servoId, multiTurn, performance.now());
+      if (decoded?.found) {
+        pushRaw(decoded.raw_deg);
+        setStatus(`live WebSerial, last RX ${Math.round(performance.now() - lastRxAt)}ms ago`);
+        logDebug(`DECODE raw=${decoded.raw_deg.toFixed(3)} deg`);
+      } else if (decoded?.error) {
+        setStatus(decoded.error);
+        logDebug(`DECODE error: ${decoded.error}`);
+      } else {
+        setStatus(`timeout waiting for id=${servoId}; check id, baudrate, power, TX/RX wiring`);
+        logDebug("TIMEOUT no valid FashionStar angle response");
+      }
+    } catch (error) {
+      setStatus(`poll error: ${error.message}`);
+      logDebug(`POLL error: ${error.stack || error.message}`);
+      live = false;
+      break;
     }
 
     await sleep(pollIntervalMs);
@@ -254,21 +274,21 @@ async function play(values, delayMs = 50) {
 }
 
 function reset() {
-  filter = WasmAngleReliability.with_config(0.2, zeroConfirmSamples());
+  filter = WasmAngleReliability.with_config(0.2, zeroConfirmDurationS());
   points = [];
   render();
 }
 
 function glitchSequence() {
   const stableA = Array(35).fill(-72);
-  const badZero = Array(20).fill(0);
+  const badZero = Array(8).fill(0);
   const stableB = [-68, -62, -55, -48, -42, -36, -30, -28, -27, -27, -27, -27];
   return [...stableA, ...badZero, ...stableB];
 }
 
 function realZeroSequence() {
   const stableA = Array(25).fill(-64);
-  const zeros = Array(40).fill(0);
+  const zeros = Array(20).fill(0);
   return [...stableA, ...zeros];
 }
 

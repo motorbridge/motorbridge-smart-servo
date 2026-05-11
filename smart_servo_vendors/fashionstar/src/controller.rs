@@ -85,7 +85,8 @@ impl FashionStarController {
             if let Ok(mut sample) = protocol::decode_monitor(&packet) {
                 if sample.id == id {
                     let filter = self.filters.entry(id).or_default();
-                    let (filtered, angle_ok) = filter.filter(sample.angle_deg);
+                    let (filtered, angle_ok) = filter.filter(sample.raw_deg);
+                    sample.filtered_deg = filtered;
                     sample.angle_deg = filtered;
                     sample.reliable = angle_ok;
                     self.loss_tracker.record_ok(id);
@@ -141,7 +142,8 @@ impl FashionStarController {
         for packet in report.packets {
             if let Ok(mut m) = protocol::decode_monitor(&packet) {
                 let filter = self.filters.entry(m.id).or_default();
-                let (filtered, angle_ok) = filter.filter(m.angle_deg);
+                let (filtered, angle_ok) = filter.filter(m.raw_deg);
+                m.filtered_deg = filtered;
                 m.angle_deg = filtered;
                 m.reliable = angle_ok;
                 self.loss_tracker.record_ok(m.id);
@@ -203,8 +205,8 @@ impl FashionStarController {
 
     pub fn filter_timeout_sample(&mut self, id: ServoId) -> Option<AngleSample> {
         let filter = self.filters.entry(id).or_default();
-        filter.state.last_good_deg.map(|last| AngleSample {
-            raw_deg: 0.0,
+        filter.state.last_filtered_deg.map(|last| AngleSample {
+            raw_deg: filter.state.last_raw_deg.unwrap_or(0.0),
             filtered_deg: last,
             reliable: false,
         })

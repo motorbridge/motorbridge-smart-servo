@@ -60,6 +60,10 @@ pub struct PyServoMonitor {
     #[pyo3(get)]
     pub status: u8,
     #[pyo3(get)]
+    pub raw_deg: f32,
+    #[pyo3(get)]
+    pub filtered_deg: f32,
+    #[pyo3(get)]
     pub angle_deg: f32,
     #[pyo3(get)]
     pub turn: i16,
@@ -76,6 +80,8 @@ impl From<ServoMonitor> for PyServoMonitor {
             power_mw: m.power_mw,
             temp_raw: m.temp_raw,
             status: m.status,
+            raw_deg: m.raw_deg,
+            filtered_deg: m.filtered_deg,
             angle_deg: m.angle_deg,
             turn: m.turn,
             reliable: m.reliable,
@@ -87,9 +93,11 @@ impl From<ServoMonitor> for PyServoMonitor {
 impl PyServoMonitor {
     fn __repr__(&self) -> String {
         format!(
-            "ServoMonitor(id={}, angle_deg={:.3}, voltage_mv={}, \
+            "ServoMonitor(id={}, raw_deg={:.3}, filtered_deg={:.3}, angle_deg={:.3}, voltage_mv={}, \
              current_ma={}, power_mw={}, temp_raw={}, status={:#04x}, turn={}, reliable={})",
             self.id,
+            self.raw_deg,
+            self.filtered_deg,
             self.angle_deg,
             self.voltage_mv,
             self.current_ma,

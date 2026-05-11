@@ -82,6 +82,9 @@ impl SerialBus {
                         break;
                     }
                 }
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {
+                    continue;
+                }
                 Ok(_) => {}
                 Err(e) => return Err(e.into()),
             }

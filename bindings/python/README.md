@@ -42,7 +42,7 @@ Common methods:
 - `read_angle(servo_id, multi_turn=True) -> AngleSample`
 - `read_raw_angle(servo_id, multi_turn=True) -> float`
 - `read_filtered_angle(servo_id, multi_turn=True) -> float`
-- `monitor(servo_id, multi_turn=True, interval_s=0.02, count=None)`
+- `monitor(servo_id, multi_turn=True, interval_s=0.01, count=None)`
 - `set_angle(servo_id, angle_deg, multi_turn=False, interval_ms=0)`
 
 Note: `set_angle` is currently kept for API compatibility, but write-control
@@ -103,7 +103,7 @@ with FashionStarServo("/dev/ttyUSB0", 1_000_000) as bus:
 
 ```python
 with SmartServoBus.open(vendor="fashionstar", port="/dev/ttyUSB0") as bus:
-    for sample in bus.monitor(0, multi_turn=True, interval_s=0.02):
+    for sample in bus.monitor(0, multi_turn=True, interval_s=0.01):
         print(
             f"raw={sample.raw_deg:9.3f} "
             f"filtered={sample.filtered_deg:9.3f} "
@@ -114,6 +114,34 @@ with SmartServoBus.open(vendor="fashionstar", port="/dev/ttyUSB0") as bus:
 `monitor()` keeps streaming after transient timeout once at least one valid
 sample has been observed. In those moments you can see `reliable=False` while
 `filtered_deg` holds the last safe value.
+
+## Polling Frequency
+
+The Python binding is synchronous today. Each call goes to the serial bus:
+
+- `read_angle(...)`: one servo angle transaction.
+- `sync_monitor([...])`: one sync-monitor transaction for all requested servos.
+- `monitor(..., interval_s=0.01)`: calls `read_angle`, yields the sample, then
+  sleeps for `interval_s`.
+
+On the measured 7-servo FashionStar bus, one `sync_monitor([0..6])` cycle takes
+about `4.4 ms`. For stable operation, use a `10 ms` target period, which gives
+roughly `100 Hz` effective updates:
+
+```python
+period_s = 0.01
+while True:
+    t0 = time.monotonic()
+    result = bus.sync_monitor([0, 1, 2, 3, 4, 5, 6])
+    # use m.raw_deg, m.filtered_deg, m.reliable
+    sleep_s = period_s - (time.monotonic() - t0)
+    if sleep_s > 0:
+        time.sleep(sleep_s)
+```
+
+Calling faster than the bus can complete only increases blocking and jitter; it
+does not create fresher data. There is no background cache thread in the Python
+binding yet.
 
 ## Move Command (Temporarily Unsupported)
 

@@ -158,7 +158,7 @@ class FashionStarServo:
 
     def set_loss_threshold(self, threshold: int) -> None:
         """Set how many consecutive missed responses trigger a ServoBusError.
-        A value of 0 disables the check (default is 20).
+        A value of 0 disables the check, which is the default.
         """
         try:
             self._inner.set_loss_threshold(int(threshold))
@@ -174,7 +174,8 @@ class FashionStarServo:
           from the last known good reading.
         - None: servo has never responded (no cached value available yet).
 
-        Raises ServoBusError if any servo exceeds the consecutive loss threshold.
+        Raises ServoBusError only if a positive consecutive loss threshold is set
+        and any servo exceeds it.
         """
         try:
             return self._inner.sync_monitor([self._check_id(i) for i in servo_ids])

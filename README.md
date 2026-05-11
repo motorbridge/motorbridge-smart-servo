@@ -43,8 +43,8 @@ Current vendor target: **FashionStar UART smart servo**.
 ## Quick Start — Rust CLI
 
 ```bash
-# Sync read all 7 servos in one request (~24 ms, vs ~154 ms sequential)
-cargo run -p smart_servo_cli -- sync-monitor --port /dev/ttyUSB0 --baudrate 1000000 --ids 0 1 2 3 4 5 6 --interval-ms 20
+# Sync read all 7 servos in one request (~4.4 ms observed; use 10 ms cycles for ~100 Hz)
+cargo run -p smart_servo_cli -- sync-monitor --port /dev/ttyUSB0 --baudrate 1000000 --ids 0 1 2 3 4 5 6 --interval-ms 10
 
 # Scan bus
 cargo run -p smart_servo_cli -- scan --port /dev/ttyUSB0 --baudrate 1000000 --max-id 20
@@ -52,8 +52,8 @@ cargo run -p smart_servo_cli -- scan --port /dev/ttyUSB0 --baudrate 1000000 --ma
 # Read filtered angle
 cargo run -p smart_servo_cli -- read-angle --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn
 
-# Continuous monitor at 50 Hz
-cargo run -p smart_servo_cli -- monitor --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn --interval-ms 20
+# Continuous single-servo monitor at 100 Hz
+cargo run -p smart_servo_cli -- monitor --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn --interval-ms 10
 
 # Move servo
 cargo run -p smart_servo_cli -- set-angle --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --angle -45 --interval-ms 500
@@ -89,14 +89,18 @@ with SmartServoBus.open(vendor="fashionstar", port="/dev/ttyUSB0", baudrate=1_00
     print(sample.raw_deg, sample.filtered_deg, sample.reliable)
 
     # Monitor continuously
-    for s in bus.monitor(0, multi_turn=True, interval_s=0.02):
+    for s in bus.monitor(0, multi_turn=True, interval_s=0.01):
         print(f"raw={s.raw_deg:9.3f} filtered={s.filtered_deg:9.3f} reliable={s.reliable}")
 
     # Sync read — query 7 servos in one request
     result = bus.sync_monitor([0, 1, 2, 3, 4, 5, 6])
     for sid, m in result.items():
         if m and m.reliable:
-            print(f"id={sid} angle={m.angle_deg:.2f} volt={m.voltage_mv}mV")
+            print(
+                f"id={sid} raw={m.raw_deg:.2f} "
+                f"filtered={m.filtered_deg:.2f} reliable={m.reliable} "
+                f"volt={m.voltage_mv}mV"
+            )
 
     # Move servo
     bus.set_angle(0, -45.0, multi_turn=False, interval_ms=500)

@@ -53,7 +53,7 @@ Native CLI on Ubuntu:
 ```bash
 cargo run -p smart_servo_cli -- scan --vendor fashionstar --port /dev/ttyUSB0 --baudrate 1000000 --max-id 20 --timeout-ms 30
 cargo run -p smart_servo_cli -- read-angle --vendor fashionstar --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn
-cargo run -p smart_servo_cli -- monitor --vendor fashionstar --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn --interval-ms 20
+cargo run -p smart_servo_cli -- monitor --vendor fashionstar --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn --interval-ms 10
 ```
 
 Python wheel on Ubuntu:
@@ -73,7 +73,7 @@ Python CLI on Ubuntu:
 ```bash
 motorbridge-smart-servo scan --vendor fashionstar --port /dev/ttyUSB0 --baudrate 1000000 --max-id 20
 motorbridge-smart-servo read-angle --vendor fashionstar --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn
-motorbridge-smart-servo monitor --vendor fashionstar --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn --interval-s 0.02
+motorbridge-smart-servo monitor --vendor fashionstar --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn --interval-s 0.01
 ```
 
 Install a GitHub Release wheel on Ubuntu:
@@ -147,13 +147,13 @@ Monitor continuously:
 Windows PowerShell:
 
 ```powershell
-cargo run -p smart_servo_cli -- monitor --port COM5 --baudrate 1000000 --id 0 --multi-turn --interval-ms 20
+cargo run -p smart_servo_cli -- monitor --port COM5 --baudrate 1000000 --id 0 --multi-turn --interval-ms 10
 ```
 
 Ubuntu/bash:
 
 ```bash
-cargo run -p smart_servo_cli -- monitor --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn --interval-ms 20
+cargo run -p smart_servo_cli -- monitor --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn --interval-ms 10
 ```
 
 Move a servo:
@@ -176,20 +176,21 @@ Windows PowerShell:
 
 ```powershell
 cargo run -p smart_servo_cli -- sync-monitor --port COM5 --baudrate 1000000 --ids 0 1 2 3 4 5 6
-cargo run -p smart_servo_cli -- sync-monitor --port COM5 --baudrate 1000000 --ids 0 1 2 3 4 5 6 --interval-ms 20
+cargo run -p smart_servo_cli -- sync-monitor --port COM5 --baudrate 1000000 --ids 0 1 2 3 4 5 6 --interval-ms 10
 ```
 
 Ubuntu/bash:
 
 ```bash
 cargo run -p smart_servo_cli -- sync-monitor --port /dev/ttyUSB0 --baudrate 1000000 --ids 0 1 2 3 4 5 6
-cargo run -p smart_servo_cli -- sync-monitor --port /dev/ttyUSB0 --baudrate 1000000 --ids 0 1 2 3 4 5 6 --interval-ms 20
+cargo run -p smart_servo_cli -- sync-monitor --port /dev/ttyUSB0 --baudrate 1000000 --ids 0 1 2 3 4 5 6 --interval-ms 10
 ```
 
 Each row shows `angle`, `voltage`, and `reliable` for every queried servo.
 A servo that does not respond returns its last known angle with `reliable=false`.
-If a servo exceeds the consecutive loss threshold (default 20), the command stops
-with `fatal: servo N lost N consecutive responses`.
+By default, the consecutive loss hard-stop is disabled, so monitoring continues
+through servo power loss. Set a positive loss threshold if your application wants
+offline servos to become a fatal error.
 
 Output meaning:
 
@@ -201,14 +202,15 @@ raw=    0.000 filtered=  -93.900 reliable=false
 means the filter is holding the last valid value because the raw value looks like
 a power-cycle bridge (`A -> 0 -> B`).
 
-If the servo is intentionally held at real zero, the filter confirms repeated
-zero samples and eventually releases `filtered=0 reliable=true`.
+If the servo is intentionally held at real zero, the filter confirms that raw
+angle has stayed near zero for `0.65 s` and eventually releases
+`filtered=0 reliable=true`.
 
-The core default confirmation window is `30` consecutive zero samples. At the
-common `20 ms` monitor interval this is about `0.6 s`. The WASM WebSerial demo
-uses a longer `3.0 s` default because real power-cycle testing showed a longer
-startup zero glitch. See [ARCHITECTURE.md](ARCHITECTURE.md) for the design note
-about making this timing consistent across CLI, Python, C ABI, and WASM.
+The core default confirmation window is time-based:
+`zero_confirm_duration_s = 0.65`. At the recommended 100 Hz backend polling rate
+this is about 60 near-zero samples, but the decision is made by elapsed time
+rather than sample count. See [ARCHITECTURE.md](ARCHITECTURE.md) for the design
+note.
 
 If the bus times out during monitoring after at least one valid sample, the CLI
 continues and prints `reliable=false` with the last filtered angle.
@@ -293,13 +295,13 @@ Monitor:
 Windows PowerShell:
 
 ```powershell
-motorbridge-smart-servo monitor --port COM5 --baudrate 1000000 --id 0 --multi-turn --interval-s 0.02
+motorbridge-smart-servo monitor --port COM5 --baudrate 1000000 --id 0 --multi-turn --interval-s 0.01
 ```
 
 Ubuntu/bash:
 
 ```bash
-motorbridge-smart-servo monitor --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn --interval-s 0.02
+motorbridge-smart-servo monitor --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn --interval-s 0.01
 ```
 
 Move:
@@ -342,7 +344,7 @@ bus.read_raw_angle(0, multi_turn=True)
 bus.read_filtered_angle(0, multi_turn=True)
 bus.set_angle(0, -45.0, multi_turn=False, interval_ms=500)
 bus.set_stop_mode(0, mode=0x10, power=0)   # stop and release torque
-bus.set_loss_threshold(20)                 # consecutive miss threshold (0 = disabled)
+bus.set_loss_threshold(20)                 # opt-in hard fault after 20 misses
 ```
 
 Sync read — query N servos in one request:
@@ -354,16 +356,22 @@ with SmartServoBus.open(vendor="fashionstar", port="COM5", baudrate=1_000_000) a
     try:
         result: dict[int, ServoMonitor | None] = bus.sync_monitor([0, 1, 2, 3, 4, 5, 6])
     except ServoBusError as exc:
-        # raised when a servo exceeds the consecutive loss threshold
+        # raised only after opting into a positive consecutive loss threshold
         print(f"fatal: {exc}")
     else:
         for sid, m in result.items():
             if m is None:
                 print(f"id={sid}: no data (never responded)")
             elif not m.reliable:
-                print(f"id={sid}: held angle={m.angle_deg:.2f} (unreliable)")
+                print(
+                    f"id={sid}: held raw={m.raw_deg:.2f} "
+                    f"filtered={m.filtered_deg:.2f} (unreliable)"
+                )
             else:
-                print(f"id={sid}: angle={m.angle_deg:.2f} volt={m.voltage_mv}mV")
+                print(
+                    f"id={sid}: raw={m.raw_deg:.2f} "
+                    f"filtered={m.filtered_deg:.2f} volt={m.voltage_mv}mV"
+                )
 ```
 
 `ServoMonitor` fields:
@@ -371,7 +379,9 @@ with SmartServoBus.open(vendor="fashionstar", port="COM5", baudrate=1_000_000) a
 | Field | Type | Description |
 |---|---|---|
 | `id` | `int` | Servo ID |
-| `angle_deg` | `float` | Filtered angle (degrees) |
+| `raw_deg` | `float` | Raw protocol angle before filtering |
+| `filtered_deg` | `float` | Reliability-filtered angle for control logic |
+| `angle_deg` | `float` | Backward-compatible alias of `filtered_deg` |
 | `voltage_mv` | `int` | Voltage (mV) |
 | `current_ma` | `int` | Current (mA) |
 | `power_mw` | `int` | Power (mW) |
@@ -380,13 +390,22 @@ with SmartServoBus.open(vendor="fashionstar", port="COM5", baudrate=1_000_000) a
 | `turn` | `int` | Turn count |
 | `reliable` | `bool` | `True` = fresh reading and angle passed filter; `False` = held or glitch |
 
+Python polling frequency:
+
+- The binding is synchronous/on-demand. `read_angle()` and `sync_monitor()` each
+  perform a serial transaction when called.
+- A measured 7-servo `sync_monitor([0..6])` cycle is about `4.4 ms`.
+- Use a `10 ms` target period for about `100 Hz` effective updates.
+- Calling faster than the transaction can finish only blocks longer and adds
+  jitter; it does not create fresher data.
+
 Consecutive loss threshold:
 
 ```python
-# Raise ServoBusError after 20 consecutive missed responses (default)
+# Raise ServoBusError after 20 consecutive missed responses
 bus.set_loss_threshold(20)
 
-# Disable the check
+# Disable the check (default)
 bus.set_loss_threshold(0)
 ```
 
@@ -394,7 +413,7 @@ Monitor generator:
 
 ```python
 with SmartServoBus.open(vendor="fashionstar", port="COM5") as bus:
-    for sample in bus.monitor(0, multi_turn=True, interval_s=0.02):
+    for sample in bus.monitor(0, multi_turn=True, interval_s=0.01):
         print(sample)
 ```
 

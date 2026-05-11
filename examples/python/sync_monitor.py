@@ -15,7 +15,7 @@ from motorbridge_smart_servo import ServoMonitor, SmartServoBus, ServoBusError
 PORT = "/dev/cu.wchusbserial11230"
 BAUDRATE = 1_000_000
 SERVO_IDS = [0, 1, 2, 3, 4, 5, 6]
-INTERVAL_S = 0.02  # ~50 Hz
+INTERVAL_S = 0.01  # ~100 Hz
 
 with SmartServoBus.open(vendor="fashionstar", port=PORT, baudrate=BAUDRATE) as bus:
     print(f"Polling {len(SERVO_IDS)} servos via sync_monitor at {1/INTERVAL_S:.0f} Hz")
@@ -40,7 +40,9 @@ with SmartServoBus.open(vendor="fashionstar", port=PORT, baudrate=BAUDRATE) as b
             else:
                 flag = "ok" if m.reliable else "~"
                 print(
-                    f"{sid:>3}  {m.angle_deg:>8.2f}°  "
+                    f"{sid:>3}  raw={m.raw_deg:>8.2f}°  "
+                    f"filtered={m.filtered_deg:>8.2f}°  "
+                    f"angle={m.angle_deg:>8.2f}°  "
                     f"{m.voltage_mv / 1000:>6.2f}V  "
                     f"{flag:>8}"
                 )

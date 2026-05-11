@@ -45,8 +45,38 @@ impl LossTracker {
 }
 
 impl Default for LossTracker {
-    /// Default threshold: 20 consecutive misses.
+    /// Default threshold: 0 disables hard-stop loss errors.
+    ///
+    /// Monitoring clients should keep returning held cached values with
+    /// `reliable=false` during power loss. Applications that want a hard fault
+    /// can opt in with `set_loss_threshold`.
     fn default() -> Self {
-        Self::new(20)
+        Self::new(0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LossTracker;
+    use crate::SmartServoError;
+
+    #[test]
+    fn default_does_not_error_on_consecutive_misses() {
+        let mut tracker = LossTracker::default();
+        for _ in 0..100 {
+            assert!(tracker.record_miss(1).is_ok());
+        }
+        assert_eq!(tracker.miss_count(1), 100);
+    }
+
+    #[test]
+    fn explicit_threshold_errors_at_limit() {
+        let mut tracker = LossTracker::new(2);
+        assert!(tracker.record_miss(1).is_ok());
+        let err = tracker.record_miss(1).unwrap_err();
+        assert!(matches!(
+            err,
+            SmartServoError::ConsecutiveLoss { id: 1, count: 2 }
+        ));
     }
 }

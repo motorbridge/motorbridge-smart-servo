@@ -66,8 +66,8 @@ filtered: 5.0 ->       5.0 ->       5.0 -> 5.1
 
 Two guard conditions are checked before accepting a raw value:
 
-1. **Near-zero**: `|raw| <= zero_eps_deg` — hold last good, require
-   `zero_confirm_samples` consecutive zero readings before accepting.
+1. **Near-zero**: `|raw| <= zero_eps_deg` — hold last good, require the
+   reading to remain near zero for `zero_confirm_duration_s` before accepting.
 2. **Out of range**: `|raw| > valid_range_deg` — hold last good indefinitely
    until an in-range value arrives.
 
@@ -82,23 +82,24 @@ raw:      -70 -> -55 -> -20
 filtered: -70 -> -55 -> -20
 ```
 
-Repeated zero samples are treated as an intentional real zero after confirmation,
-so a servo commanded to zero is not held forever at the previous non-zero angle.
+Repeated zero readings are treated as an intentional real zero after the
+duration confirmation, so a servo commanded to zero is not held forever at the
+previous non-zero angle.
 
 ### Zero Confirmation Timing
 
-The reliability core currently expresses zero confirmation as a sample count,
-not as wall-clock time:
+The reliability core expresses zero confirmation as wall-clock time, not as a
+sample count, so behavior stays stable when the polling rate changes:
 
 ```text
-confirmation_time = zero_confirm_samples * polling_interval
+confirmation_time = zero_confirm_duration_s
 ```
 
 Current defaults:
 
-- Core default: `zero_confirm_samples = 30`
-- At `20 ms` polling: about `0.6 s`
-- WASM WebSerial demo default: `3.0 s`, implemented as about `150` samples at `20 ms`
+- Core default: `zero_confirm_duration_s = 0.65`
+- At a 100 Hz backend poll rate, this is about 60 near-zero samples.
+- The WASM demos expose the same duration value as "Zero hold seconds".
 
 ## Sync Read (code 25)
 
@@ -112,7 +113,18 @@ Latency comparison at 1 Mbaud with 7 servos:
 | Mode | Per-cycle latency |
 |---|---|
 | Sequential angle read (code 16 × 7) | ~154 ms |
-| Sync monitor (code 25 + sub 22) | ~24 ms |
+| Sync monitor (code 25 + sub 22) | ~4.4 ms observed on a 7-servo bus |
+
+The Fashion Star protocol recommends a 5-10 ms command interval. With a
+measured ~4.4 ms `sync_monitor` cycle and a 10 ms target polling period, a
+polling loop can update at about 100 Hz while still leaving bus and OS jitter
+room.
+
+Current CLI and Python APIs are synchronous/on-demand: each `read_angle()` or
+`sync_monitor()` call performs a serial transaction immediately. To run at a
+stable 100 Hz, the caller should schedule calls on a 10 ms period and account for
+the time spent in the serial transaction. A future background cache can use the
+same 10 ms period and expose non-blocking `get_latest` style reads.
 
 Partial responses (some servos offline) are handled gracefully: offline servos
 are silently absent; their last known angle is held with `reliable = false`.
@@ -121,9 +133,12 @@ responses does not cause premature exit.
 
 ## Consecutive Loss Detection
 
-`LossTracker` counts per-servo consecutive missed responses. When a servo
-exceeds the threshold (default 20), `SmartServoError::ConsecutiveLoss` is
-raised. A successful response from that servo resets its counter to zero.
+`LossTracker` counts per-servo consecutive missed responses. The default
+threshold is `0`, which disables hard-stop errors so monitoring can keep
+returning held values with `reliable = false` during servo power loss. When an
+application opts into a positive threshold and a servo exceeds it,
+`SmartServoError::ConsecutiveLoss` is raised. A successful response from that
+servo resets its counter to zero.
 
 ## Serial Bus Read Strategy
 

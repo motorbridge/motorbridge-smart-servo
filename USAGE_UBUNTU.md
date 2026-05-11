@@ -204,14 +204,14 @@ raw=  -70.000 filtered=  -70.000 reliable=true
 ### 5.3 持续监控
 
 ```bash
-motorbridge-smart-servo monitor --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn --interval-s 0.02
+motorbridge-smart-servo monitor --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn --interval-s 0.01
 ```
 
 参数说明：
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `--interval-s` | `0.02` | 采样间隔（秒），即 50Hz |
+| `--interval-s` | `0.01` | 采样间隔（秒），即 100Hz |
 
 `Ctrl+C` 停止。
 
@@ -246,7 +246,7 @@ motorbridge-smart-servo set-angle --port /dev/ttyUSB0 --baudrate 1000000 --id 0 
 ```bash
 cargo run -p smart_servo_cli -- scan --vendor fashionstar --port /dev/ttyUSB0 --baudrate 1000000 --max-id 20 --timeout-ms 30
 cargo run -p smart_servo_cli -- read-angle --vendor fashionstar --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn
-cargo run -p smart_servo_cli -- monitor --vendor fashionstar --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn --interval-ms 20
+cargo run -p smart_servo_cli -- monitor --vendor fashionstar --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --multi-turn --interval-ms 10
 cargo run -p smart_servo_cli -- set-angle --vendor fashionstar --port /dev/ttyUSB0 --baudrate 1000000 --id 0 --angle -45 --interval-ms 500
 ```
 
@@ -304,14 +304,14 @@ filtered = bus.read_filtered_angle(0, multi_turn=True)  # 仅滤波角度（floa
 
 ```python
 with SmartServoBus.open(vendor="fashionstar", port="/dev/ttyUSB0") as bus:
-    for sample in bus.monitor(0, multi_turn=True, interval_s=0.02):
+    for sample in bus.monitor(0, multi_turn=True, interval_s=0.01):
         print(f"raw={sample.raw_deg:9.3f} filtered={sample.filtered_deg:9.3f} reliable={sample.reliable}")
 ```
 
 限制采样数量：
 
 ```python
-for sample in bus.monitor(0, multi_turn=True, interval_s=0.02, count=100):
+for sample in bus.monitor(0, multi_turn=True, interval_s=0.01, count=100):
     ...
 ```
 
@@ -344,7 +344,21 @@ with FashionStarServo("/dev/ttyUSB0", 1_000_000) as bus:
 | `filtered_deg` | `float` | 滤波后的安全角度值 |
 | `reliable` | `bool` | `True` = 数据可信；`False` = 滤波器在保持上一有效值 |
 
-### 6.9 异常类型
+### 6.9 Python 调用频率
+
+当前 Python binding 是同步/按需调用模式：
+
+- `read_angle(...)`：调用一次，就执行一次单舵机串口查询。
+- `sync_monitor([...])`：调用一次，就执行一次多舵机同步查询。
+- `monitor(..., interval_s=0.01)`：内部循环调用 `read_angle`，输出样本后再 sleep。
+
+当前 7 个舵机 `sync_monitor([0..6])` 实测一轮约 `4.4ms`。建议上层按
+`10ms` 周期调度，也就是约 `100Hz` 有效更新。调用频率高于总线事务完成
+速度只会增加阻塞和抖动，不会产生更新鲜的数据。当前 Python binding 还
+没有后台缓存线程；如果后续加入后台 cache，也应由底层固定 `10ms` 周期
+采样，上层只读最近样本。
+
+### 6.10 异常类型
 
 | 异常 | 说明 |
 |------|------|
@@ -380,7 +394,7 @@ python examples/python/read_angle.py
 
 ### 7.4 持续监控（`examples/python/monitor.py`）
 
-以 50Hz 持续采样，`Ctrl+C` 停止：
+以 100Hz 持续采样，`Ctrl+C` 停止：
 
 ```bash
 python examples/python/monitor.py
@@ -420,7 +434,7 @@ FashionStar 舵机掉电瞬间会产生 `A → 0 → B` 的跳变（中间经过
 可信度:    T  →  T  →  T
 ```
 
-如果舵机被命令转到真实的 0°，滤波器在确认多个连续零值采样后会释放：
+如果舵机被命令转到真实的 0°，滤波器在确认接近 0 的状态持续 `0.65s` 后会释放：
 
 ```
 原始值:   -70 →  0  →  0  →  0  →  0
@@ -428,11 +442,10 @@ FashionStar 舵机掉电瞬间会产生 `A → 0 → B` 的跳变（中间经过
 可信度:    T  →  F  →  T  →  T  →  T
 ```
 
-当前 core 默认需要连续 `30` 个接近 0 的样本才确认真实 0。
-在 `20ms` 采样间隔下约等于 `0.6s`。WASM WebSerial demo 默认
-`Zero hold seconds = 3.0`，约等于 `150` 个样本，用于更稳地压制真实
-上电测试中观察到的较长 0 毛刺。后续建议把 core 也改成时间语义或
-统一更长默认窗口，让 CLI、Python、C ABI、WASM 默认表现一致。
+当前 core 默认使用时间语义确认真实 0：`zero_confirm_duration_s = 0.65`。
+在推荐的底层 `100Hz` 采样下约等于 60 个接近 0 的样本，但判断依据是
+经过的时间，不会因为采样频率变化而改变确认窗口。WASM WebSerial demo
+也通过 `Zero hold seconds` 配置同一个持续时间。
 
 ### 通信中断
 
@@ -560,7 +573,7 @@ motorbridge-smart-servo/
     │   ├── scan.py             # 扫描总线上的在线舵机
     │   ├── ping.py             # Ping 单个舵机检查在线状态
     │   ├── read_angle.py       # 读取单次角度（含便捷方法）
-    │   ├── monitor.py          # 持续监控（50Hz）
+    │   ├── monitor.py          # 持续监控（100Hz）
     │   └── set_angle.py        # 控制舵机转动（注意安全警告）
     └── wasm/                   # 浏览器 WebSerial + WASM 示例
 ```

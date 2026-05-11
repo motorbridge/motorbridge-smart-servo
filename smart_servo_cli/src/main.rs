@@ -286,7 +286,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         for id in &sorted {
                             match result.get(id) {
                                 Some(Some(m)) => println!(
-                                    "id={id} angle={:8.3} volt={:.2}V reliable={}  +{elapsed}µs",
+                                    "id={id} raw={:8.3} filtered={:8.3} angle={:8.3} volt={:.2}V reliable={}  +{elapsed}µs",
+                                    m.raw_deg,
+                                    m.filtered_deg,
                                     m.angle_deg,
                                     m.voltage_mv as f32 / 1000.0,
                                     m.reliable,

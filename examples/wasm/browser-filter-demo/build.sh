@@ -6,7 +6,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 cd "$REPO_ROOT"
 rustup target add wasm32-unknown-unknown
-cargo install wasm-bindgen-cli
+cargo install wasm-bindgen-cli --version 0.2.121 --locked
 cargo build --release -p smart_servo_wasm --target wasm32-unknown-unknown
 wasm-bindgen target/wasm32-unknown-unknown/release/smart_servo_wasm.wasm --out-dir examples/wasm/browser-filter-demo/pkg --target web
 
